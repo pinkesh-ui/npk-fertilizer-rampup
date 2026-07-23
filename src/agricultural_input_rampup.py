@@ -196,13 +196,13 @@ def build_scenario(
     weeks_to_build: float,
 ) -> ScenarioParams:
     corrected_capex = capex_per_plant * (1.0 - 0.091 - 0.066)
-    plants_per_year = annual_budget / capex_per_plant
+    plants_per_year = (annual_budget / capex_per_plant)*STARTUP_FRACTION
     waves_per_year = 52.0 / weeks_to_build
     plants_per_wave = plants_per_year / waves_per_year
     plants_per_week = plants_per_year / 52.0
 
     scaled_production_tpw = TARGET_PLANT_SIZE_TPD * 7.0
-    startup_production_tpw = STARTUP_FRACTION * scaled_production_tpw
+    startup_production_tpw =  scaled_production_tpw
 
     return ScenarioParams(
         name=name,
