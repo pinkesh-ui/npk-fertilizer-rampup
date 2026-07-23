@@ -24,7 +24,9 @@ _SRC = Path(__file__).resolve().parent / "src"
 if _SRC.is_dir() and str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from agricultural_input_rampup import COMMODITIES, N_WEEKS, simulate_commodity  # noqa: E402
+from agricultural_input_rampup import COMMODITIES  # noqa: E402
+from agricultural_input_rampup import N_WEEKS  # noqa: E402
+from agricultural_input_rampup import simulate_commodity  # noqa: E402
 
 COMMODITY_BY_KEY = {c.key: c for c in COMMODITIES}
 
@@ -39,12 +41,12 @@ COLORS = {
     "border": "#d9d2c5",
 }
 
-EXTERNAL_STYLES = [
-    {
-        "href": "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@600&display=swap",
-        "rel": "stylesheet",
-    }
-]
+_FONT_HREF = (
+    "https://fonts.googleapis.com/css2?"
+    "family=IBM+Plex+Sans:wght@400;500;600&"
+    "family=IBM+Plex+Serif:wght@600&display=swap"
+)
+EXTERNAL_STYLES = [{"href": _FONT_HREF, "rel": "stylesheet"}]
 
 
 def _fmt_money(value: float) -> str:
@@ -239,7 +241,9 @@ def budget_input(commodity_key: str, label: str, default: float) -> html.Div:
     )
 
 
-app = Dash(__name__, external_stylesheets=EXTERNAL_STYLES, title="NPK Fertilizer Ramp-up")
+app = Dash(
+    __name__, external_stylesheets=EXTERNAL_STYLES, title="NPK Fertilizer Ramp-up"
+)
 server = app.server
 
 app.index_string = """
@@ -394,8 +398,9 @@ app.layout = html.Div(
                     [
                         html.H1("Fertilizer Ramp-up Dashboard"),
                         html.P(
-                            "Set Annual World Construction Budget for NH3, potassium, and phosphate, "
-                            "then explore regular vs fast construction ramp-up curves."
+                            "Set Annual World Construction Budget for NH3, "
+                            "potassium, and phosphate, then explore regular "
+                            "vs fast construction ramp-up curves."
                         ),
                     ],
                     className="hero",
@@ -412,12 +417,16 @@ app.layout = html.Div(
                                 budget_input(
                                     "potassium",
                                     "Potassium (K) budget (USD/yr)",
-                                    COMMODITY_BY_KEY["potassium"].default_annual_budget_usd,
+                                    COMMODITY_BY_KEY[
+                                        "potassium"
+                                    ].default_annual_budget_usd,
                                 ),
                                 budget_input(
                                     "phosphate",
                                     "Phosphate (P) budget (USD/yr)",
-                                    COMMODITY_BY_KEY["phosphate"].default_annual_budget_usd,
+                                    COMMODITY_BY_KEY[
+                                        "phosphate"
+                                    ].default_annual_budget_usd,
                                 ),
                             ],
                             className="budget-row",
@@ -430,7 +439,8 @@ app.layout = html.Div(
                                         dcc.Dropdown(
                                             id="commodity-select",
                                             options=[
-                                                {"label": c.label, "value": c.key} for c in COMMODITIES
+                                                {"label": c.label, "value": c.key}
+                                                for c in COMMODITIES
                                             ],
                                             value="nh3",
                                             clearable=False,
@@ -438,7 +448,12 @@ app.layout = html.Div(
                                         ),
                                     ]
                                 ),
-                                html.Button("Update charts", id="run-btn", n_clicks=0, className="run-btn"),
+                                html.Button(
+                                    "Update charts",
+                                    id="run-btn",
+                                    n_clicks=0,
+                                    className="run-btn",
+                                ),
                             ],
                             className="actions",
                         ),
@@ -477,7 +492,10 @@ app.layout = html.Div(
                                 "backgroundColor": "#efeae1",
                             },
                             style_data_conditional=[
-                                {"if": {"row_index": "odd"}, "backgroundColor": "#faf8f4"}
+                                {
+                                    "if": {"row_index": "odd"},
+                                    "backgroundColor": "#faf8f4",
+                                }
                             ],
                         ),
                     ],

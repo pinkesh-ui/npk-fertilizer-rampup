@@ -80,7 +80,12 @@ def compute_nh3_capex() -> CapexResult:
     euro_inflation_2012_to_2025 = 1.3855340403694834
     eur_to_usd = 1.16
     scale = TARGET_PLANT_SIZE_TPD / ref_capacity_tpd
-    regular = ref_capex_eur * euro_inflation_2012_to_2025 * eur_to_usd * (scale ** COST_CAPACITY_EXPONENT)
+    regular = (
+        ref_capex_eur
+        * euro_inflation_2012_to_2025
+        * eur_to_usd
+        * (scale**COST_CAPACITY_EXPONENT)
+    )
     fast = FAST_CONSTRUCTION_COST_FACTOR * regular
     return CapexResult(
         regular_capex_usd=regular,
@@ -102,7 +107,7 @@ def compute_potassium_capex() -> CapexResult:
     ref_capex_usd = 480_000_000.0
     target_tpy = TARGET_PLANT_SIZE_TPD * 365.0
     scale = target_tpy / ref_capacity_tpy
-    regular = ref_capex_usd * (scale ** COST_CAPACITY_EXPONENT)
+    regular = ref_capex_usd * (scale**COST_CAPACITY_EXPONENT)
     fast = FAST_CONSTRUCTION_COST_FACTOR * regular
     return CapexResult(
         regular_capex_usd=regular,
@@ -126,7 +131,7 @@ def compute_phosphate_capex() -> CapexResult:
     ref_total_investment_1978_usd = 70_000_000.0
     ref_capex_2025 = ref_total_investment_1978_usd * inflation
     scale = TARGET_PLANT_SIZE_TPD / ref_capacity_tpd
-    regular = ref_capex_2025 * (scale ** COST_CAPACITY_EXPONENT)
+    regular = ref_capex_2025 * (scale**COST_CAPACITY_EXPONENT)
     fast = FAST_CONSTRUCTION_COST_FACTOR * regular
     return CapexResult(
         regular_capex_usd=regular,
@@ -196,13 +201,13 @@ def build_scenario(
     weeks_to_build: float,
 ) -> ScenarioParams:
     corrected_capex = capex_per_plant * (1.0 - 0.091 - 0.066)
-    plants_per_year = (annual_budget / capex_per_plant)*STARTUP_FRACTION
+    plants_per_year = (annual_budget / capex_per_plant) * STARTUP_FRACTION
     waves_per_year = 52.0 / weeks_to_build
     plants_per_wave = plants_per_year / waves_per_year
     plants_per_week = plants_per_year / 52.0
 
     scaled_production_tpw = TARGET_PLANT_SIZE_TPD * 7.0
-    startup_production_tpw =  scaled_production_tpw
+    startup_production_tpw = scaled_production_tpw
 
     return ScenarioParams(
         name=name,
@@ -236,8 +241,13 @@ def build_wave_table(
         if wave == 1:
             startup_tpw = scenario.startup_production_tpw * plants
         else:
-            startup_tpw = prev_full_tpw + scenario.startup_production_tpw * scenario.plants_per_wave
-        startup_years = scenario.time_to_construct_wave_years * wave + scenario.planning_time_years
+            startup_tpw = (
+                prev_full_tpw
+                + scenario.startup_production_tpw * scenario.plants_per_wave
+            )
+        startup_years = (
+            scenario.time_to_construct_wave_years * wave + scenario.planning_time_years
+        )
         startup_mtpy = startup_tpw / 1_000_000.0 * 52.0
         rows.append(
             {
@@ -248,7 +258,8 @@ def build_wave_table(
                 "Weeks": startup_years * 52.0,
                 "Years": startup_years,
                 "Megatonnes/year": startup_mtpy,
-                "Multiple of Current Production": startup_mtpy / current_mt_per_year + 1.0,
+                "Multiple of Current Production": startup_mtpy / current_mt_per_year
+                + 1.0,
             }
         )
 
@@ -287,9 +298,13 @@ def build_weekly_series(
     n_weeks: int = N_WEEKS,
 ) -> pd.DataFrame:
     # Regular plant IFS in the workbooks covers waves 1..6 (enough for ~490 weeks)
-    reg_plant_milestones = regular_waves[regular_waves["Production Level"] == "startup production"].iloc[:6]
+    reg_plant_milestones = regular_waves[
+        regular_waves["Production Level"] == "startup production"
+    ].iloc[:6]
     reg_prod_milestones = regular_waves.iloc[:12]  # through wave 6 full
-    fast_plant_milestones = fast_waves[fast_waves["Production Level"] == "startup production"]
+    fast_plant_milestones = fast_waves[
+        fast_waves["Production Level"] == "startup production"
+    ]
     fast_prod_milestones = fast_waves
 
     reg_plant_weeks = reg_plant_milestones["Weeks"].to_numpy(dtype=float)
@@ -350,7 +365,7 @@ def _style_axes(ax) -> None:
     y0, y1 = ax.get_ylim()
     span = max(y1 - y0, abs(y1), 1e-12)
     exp = int(np.floor(np.log10(span)))
-    ax.yaxis.set_major_locator(MultipleLocator(0.25 * (10 ** exp)))
+    ax.yaxis.set_major_locator(MultipleLocator(0.25 * (10**exp)))
     ax.tick_params(axis="x", labelrotation=90, labelsize=7)
     ax.grid(True, which="major", alpha=0.3)
 
@@ -369,8 +384,15 @@ def plot_graphs(
     stem = commodity.key
 
     fig1, ax1 = plt.subplots(figsize=(12, 6))
-    ax1.plot(years, weekly["Regular megatonnes/year"], label="Regular Construction", linewidth=2)
-    ax1.plot(years, weekly["Fast megatonnes/year"], label="Fast Construction", linewidth=2)
+    ax1.plot(
+        years,
+        weekly["Regular megatonnes/year"],
+        label="Regular Construction",
+        linewidth=2,
+    )
+    ax1.plot(
+        years, weekly["Fast megatonnes/year"], label="Fast Construction", linewidth=2
+    )
     ax1.set_title(f"{commodity.production_chart_title}\n({budget_label})")
     ax1.set_xlabel("Years")
     ax1.set_ylabel("megatonnes/year")
@@ -409,8 +431,15 @@ def plot_graphs(
     axes[0].legend()
     _style_axes(axes[0])
 
-    axes[1].plot(years, weekly["Regular Multiple of Current Production"], label="Regular", linewidth=2)
-    axes[1].plot(years, weekly["Fast Multiple of Current Production"], label="Fast", linewidth=2)
+    axes[1].plot(
+        years,
+        weekly["Regular Multiple of Current Production"],
+        label="Regular",
+        linewidth=2,
+    )
+    axes[1].plot(
+        years, weekly["Fast Multiple of Current Production"], label="Fast", linewidth=2
+    )
     axes[1].set_title(commodity.multiple_chart_title)
     axes[1].set_xlabel("Years")
     axes[1].set_ylabel(commodity.multiple_y_label)
@@ -458,8 +487,12 @@ def simulate_commodity(commodity: CommodityConfig, annual_budget: float) -> dict
     )
     fast_weeks = regular_weeks * FAST_CONSTRUCTION_SPEED_FACTOR
 
-    regular = build_scenario("Regular Construction", annual_budget, capex.regular_capex_usd, regular_weeks)
-    fast = build_scenario("Fast Construction", annual_budget, capex.fast_capex_usd, fast_weeks)
+    regular = build_scenario(
+        "Regular Construction", annual_budget, capex.regular_capex_usd, regular_weeks
+    )
+    fast = build_scenario(
+        "Fast Construction", annual_budget, capex.fast_capex_usd, fast_weeks
+    )
 
     sanity_plants = (
         commodity.current_mt_per_year * 1_000_000.0 / (TARGET_PLANT_SIZE_TPD * 365.25)
@@ -467,7 +500,11 @@ def simulate_commodity(commodity: CommodityConfig, annual_budget: float) -> dict
 
     summary = pd.DataFrame(
         [
-            {"Parameter": "Commodity", "Regular": commodity.label, "Fast": commodity.label},
+            {
+                "Parameter": "Commodity",
+                "Regular": commodity.label,
+                "Fast": commodity.label,
+            },
             {
                 "Parameter": "Annual World Construction Budget (USD)",
                 "Regular": annual_budget,
@@ -533,7 +570,9 @@ def simulate_commodity(commodity: CommodityConfig, annual_budget: float) -> dict
 
     regular_waves = build_wave_table(regular, commodity.current_mt_per_year)
     fast_waves = build_wave_table(fast, commodity.current_mt_per_year)
-    weekly = build_weekly_series(regular_waves, fast_waves, commodity.current_mt_per_year)
+    weekly = build_weekly_series(
+        regular_waves, fast_waves, commodity.current_mt_per_year
+    )
 
     return {
         "commodity": commodity,
@@ -548,7 +587,9 @@ def simulate_commodity(commodity: CommodityConfig, annual_budget: float) -> dict
     }
 
 
-def run_commodity(commodity: CommodityConfig, annual_budget: float, result_root: Path) -> list[Path]:
+def run_commodity(
+    commodity: CommodityConfig, annual_budget: float, result_root: Path
+) -> list[Path]:
     out_dir = result_root / commodity.key
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -602,7 +643,14 @@ def run_commodity(commodity: CommodityConfig, annual_budget: float, result_root:
         f"({last['Fast Multiple of Current Production']:.2f}x)"
     )
 
-    saved = [summary_path, capex_path, regular_waves_path, fast_waves_path, weekly_path, *graph_paths]
+    saved = [
+        summary_path,
+        capex_path,
+        regular_waves_path,
+        fast_waves_path,
+        weekly_path,
+        *graph_paths,
+    ]
     for p in saved:
         print(f"  saved: {p}")
     return saved
