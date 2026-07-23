@@ -1,6 +1,8 @@
-pandas>=1.4.3
-setuptools>=61.2.0
+pandas>=2.0
+numpy>=1.24
+matplotlib>=3.7
+dash>=2.14
+plotly>=5.18
+gunicorn>=21.2
 pytest>=7.1.2
-numpy>=1.23.1
-matplotlib>=3.5.1
-mkdocs
+setuptools>=61.2.0

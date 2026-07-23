@@ -1,6 +1,8 @@
-from setuptools import find_packages, setup
+from setuptools import setup
 
 setup(
-    name="src",
-    packages=find_packages(),
+    name="npk-fertilizer-rampup",
+    version="0.1.0",
+    package_dir={"": "src"},
+    py_modules=["agricultural_input_rampup"],
 )
