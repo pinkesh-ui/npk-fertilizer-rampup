@@ -26,10 +26,12 @@ TARGET_PLANT_SIZE_TPD = 2000.0
 COST_CAPACITY_EXPONENT = 0.7
 FAST_CONSTRUCTION_COST_FACTOR = 1.47
 FAST_CONSTRUCTION_SPEED_FACTOR = 0.32
-STARTUP_FRACTION = 0.5
+STARTUP_FRACTION = 0.5  # default; overridable via CLI / dashboard prompt
 PLANNING_TIME_WEEKS = 4.0
 N_WAVES = 12
 N_WEEKS = 490  # Excel weekly series: weeks 1..490
+
+DEFAULT_STARTUP_FRACTION = STARTUP_FRACTION
 
 OUTPUT_DIR = Path(__file__).resolve().parent
 RESULT_DIR = OUTPUT_DIR / "result"
@@ -199,9 +201,10 @@ def build_scenario(
     annual_budget: float,
     capex_per_plant: float,
     weeks_to_build: float,
+    startup_fraction: float = DEFAULT_STARTUP_FRACTION,
 ) -> ScenarioParams:
     corrected_capex = capex_per_plant * (1.0 - 0.091 - 0.066)
-    plants_per_year = (annual_budget / capex_per_plant) * STARTUP_FRACTION
+    plants_per_year = (annual_budget / capex_per_plant) * startup_fraction
     waves_per_year = 52.0 / weeks_to_build
     plants_per_wave = plants_per_year / waves_per_year
     plants_per_week = plants_per_year / 52.0
@@ -471,15 +474,43 @@ def prompt_annual_budget(commodity: CommodityConfig) -> float:
     return value
 
 
-def simulate_commodity(commodity: CommodityConfig, annual_budget: float) -> dict:
+def prompt_startup_fraction(
+    default: float = DEFAULT_STARTUP_FRACTION,
+) -> float:
+    print("-" * 72)
+    print("Startup fraction (STARTUP_FRACTION)")
+    print(
+        "Applied to plants built per year: "
+        "(budget / CAPEX per plant) × STARTUP_FRACTION"
+    )
+    print(f"(press Enter for default {default:g})")
+    raw = input("> ").strip().replace(",", "")
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+    except ValueError as exc:
+        raise SystemExit(f"Invalid STARTUP_FRACTION: {raw!r}") from exc
+    if not 0.0 < value <= 1.0:
+        raise SystemExit("STARTUP_FRACTION must be between 0 and 1 (e.g. 0.5).")
+    return value
+
+
+def simulate_commodity(
+    commodity: CommodityConfig,
+    annual_budget: float,
+    startup_fraction: float = DEFAULT_STARTUP_FRACTION,
+) -> dict:
     """
     Run CAPEX + ramp-up for one commodity (no file I/O).
 
-    Returns dict with: commodity, budget, capex, regular, fast, summary,
-    regular_waves, fast_waves, weekly.
+    Returns dict with: commodity, budget, startup_fraction, capex, regular, fast,
+    summary, regular_waves, fast_waves, weekly.
     """
     if annual_budget <= 0:
         raise ValueError("annual_budget must be positive")
+    if not 0.0 < startup_fraction <= 1.0:
+        raise ValueError("startup_fraction must be between 0 and 1")
 
     capex = CAPEX_FUNCS[commodity.key]()
     regular_weeks = weeks_to_build_from_corrected_capex(
@@ -488,10 +519,18 @@ def simulate_commodity(commodity: CommodityConfig, annual_budget: float) -> dict
     fast_weeks = regular_weeks * FAST_CONSTRUCTION_SPEED_FACTOR
 
     regular = build_scenario(
-        "Regular Construction", annual_budget, capex.regular_capex_usd, regular_weeks
+        "Regular Construction",
+        annual_budget,
+        capex.regular_capex_usd,
+        regular_weeks,
+        startup_fraction=startup_fraction,
     )
     fast = build_scenario(
-        "Fast Construction", annual_budget, capex.fast_capex_usd, fast_weeks
+        "Fast Construction",
+        annual_budget,
+        capex.fast_capex_usd,
+        fast_weeks,
+        startup_fraction=startup_fraction,
     )
 
     sanity_plants = (
@@ -509,6 +548,11 @@ def simulate_commodity(commodity: CommodityConfig, annual_budget: float) -> dict
                 "Parameter": "Annual World Construction Budget (USD)",
                 "Regular": annual_budget,
                 "Fast": annual_budget,
+            },
+            {
+                "Parameter": "STARTUP_FRACTION",
+                "Regular": startup_fraction,
+                "Fast": startup_fraction,
             },
             {
                 "Parameter": "Total Capital Investment Per Plant (USD)",
@@ -551,11 +595,6 @@ def simulate_commodity(commodity: CommodityConfig, annual_budget: float) -> dict
                 "Fast": fast.scaled_production_tpw,
             },
             {
-                "Parameter": "Startup % of Fully Scaled Production",
-                "Regular": STARTUP_FRACTION,
-                "Fast": STARTUP_FRACTION,
-            },
-            {
                 "Parameter": "Current production (Mt/yr)",
                 "Regular": commodity.current_mt_per_year,
                 "Fast": commodity.current_mt_per_year,
@@ -577,6 +616,7 @@ def simulate_commodity(commodity: CommodityConfig, annual_budget: float) -> dict
     return {
         "commodity": commodity,
         "budget": annual_budget,
+        "startup_fraction": startup_fraction,
         "capex": capex,
         "regular": regular,
         "fast": fast,
@@ -588,12 +628,17 @@ def simulate_commodity(commodity: CommodityConfig, annual_budget: float) -> dict
 
 
 def run_commodity(
-    commodity: CommodityConfig, annual_budget: float, result_root: Path
+    commodity: CommodityConfig,
+    annual_budget: float,
+    result_root: Path,
+    startup_fraction: float = DEFAULT_STARTUP_FRACTION,
 ) -> list[Path]:
     out_dir = result_root / commodity.key
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    result = simulate_commodity(commodity, annual_budget)
+    result = simulate_commodity(
+        commodity, annual_budget, startup_fraction=startup_fraction
+    )
     capex = result["capex"]
     regular = result["regular"]
     fast = result["fast"]
@@ -660,17 +705,26 @@ def main() -> None:
     print("=" * 72)
     print("Agricultural Fertilizer Ramp-up Speed — N / P / K")
     print("=" * 72)
-    print("Enter Annual World Construction Budget for each commodity one by one.")
+    print("Enter STARTUP_FRACTION, then Annual World Construction Budget")
+    print("for each commodity one by one.")
     print()
 
     RESULT_DIR.mkdir(parents=True, exist_ok=True)
+    startup_fraction = prompt_startup_fraction()
+
     budgets: dict[str, float] = {}
     for commodity in COMMODITIES:
         budgets[commodity.key] = prompt_annual_budget(commodity)
 
-    print("\nRunning all three models...\n")
+    print(f"\nUsing STARTUP_FRACTION = {startup_fraction:g}")
+    print("Running all three models...\n")
     for commodity in COMMODITIES:
-        run_commodity(commodity, budgets[commodity.key], RESULT_DIR)
+        run_commodity(
+            commodity,
+            budgets[commodity.key],
+            RESULT_DIR,
+            startup_fraction=startup_fraction,
+        )
 
     print("\nDone. Graphs (PNG + SVG) and CSVs are under:")
     print(f"  {RESULT_DIR}")

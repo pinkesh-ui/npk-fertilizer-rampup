@@ -25,6 +25,7 @@ if _SRC.is_dir() and str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 from agricultural_input_rampup import COMMODITIES  # noqa: E402
+from agricultural_input_rampup import DEFAULT_STARTUP_FRACTION  # noqa: E402
 from agricultural_input_rampup import N_WEEKS  # noqa: E402
 from agricultural_input_rampup import simulate_commodity  # noqa: E402
 
@@ -186,6 +187,7 @@ def make_metrics(result: dict[str, Any]) -> list:
         ),
         ("Current production baseline", f"{commodity.current_mt_per_year:g} Mt/yr"),
         ("Budget", _fmt_money(result["budget"])),
+        ("STARTUP_FRACTION", f"{result['startup_fraction']:g}"),
     ]
 
     return [
@@ -399,8 +401,8 @@ app.layout = html.Div(
                         html.H1("Fertilizer Ramp-up Dashboard"),
                         html.P(
                             "Set Annual World Construction Budget for NH3, "
-                            "potassium, and phosphate, then explore regular "
-                            "vs fast construction ramp-up curves."
+                            "potassium, and phosphate, plus STARTUP_FRACTION, "
+                            "then explore regular vs fast construction ramp-up."
                         ),
                     ],
                     className="hero",
@@ -430,6 +432,31 @@ app.layout = html.Div(
                                 ),
                             ],
                             className="budget-row",
+                        ),
+                        html.Div(
+                            [
+                                html.Label(
+                                    "STARTUP_FRACTION "
+                                    "(plants/year = budget/CAPEX × fraction)"
+                                ),
+                                dcc.Input(
+                                    id="startup-fraction",
+                                    type="number",
+                                    value=DEFAULT_STARTUP_FRACTION,
+                                    min=0.01,
+                                    max=1.0,
+                                    step=0.05,
+                                    debounce=True,
+                                    className="budget-input",
+                                ),
+                                html.Div(
+                                    f"Default {DEFAULT_STARTUP_FRACTION:g} "
+                                    "(must be between 0 and 1)",
+                                    className="hint",
+                                ),
+                            ],
+                            className="budget-field",
+                            style={"marginTop": "16px", "maxWidth": "360px"},
                         ),
                         html.Div(
                             [
@@ -519,8 +546,11 @@ app.layout = html.Div(
     State("budget-nh3", "value"),
     State("budget-potassium", "value"),
     State("budget-phosphate", "value"),
+    State("startup-fraction", "value"),
 )
-def update_dashboard(n_clicks, commodity_key, budget_nh3, budget_k, budget_p):
+def update_dashboard(
+    n_clicks, commodity_key, budget_nh3, budget_k, budget_p, startup_fraction
+):
     budgets = {
         "nh3": budget_nh3,
         "potassium": budget_k,
@@ -534,16 +564,36 @@ def update_dashboard(n_clicks, commodity_key, budget_nh3, budget_k, budget_p):
         empty = _empty_fig("Waiting for budget")
         return empty, empty, [], [], msg
 
+    if startup_fraction is None:
+        startup_fraction = DEFAULT_STARTUP_FRACTION
+    try:
+        startup_fraction = float(startup_fraction)
+    except (TypeError, ValueError):
+        empty = _empty_fig("Invalid STARTUP_FRACTION")
+        return (
+            empty,
+            empty,
+            [],
+            [],
+            "STARTUP_FRACTION must be a number between 0 and 1.",
+        )
+
+    if not 0.0 < startup_fraction <= 1.0:
+        empty = _empty_fig("Invalid STARTUP_FRACTION")
+        return empty, empty, [], [], "STARTUP_FRACTION must be between 0 and 1."
+
     commodity = COMMODITY_BY_KEY[selected]
     try:
-        result = simulate_commodity(commodity, float(budget))
+        result = simulate_commodity(
+            commodity, float(budget), startup_fraction=startup_fraction
+        )
     except Exception as exc:  # noqa: BLE001 - show in UI
         empty = _empty_fig("Error")
         return empty, empty, [], [], f"Error: {exc}"
 
     status = (
-        f"Showing {commodity.label} at {_fmt_money(float(budget))}/yr "
-        f"(update #{n_clicks}). Change commodity or budgets, then click Update charts."
+        f"Showing {commodity.label} at {_fmt_money(float(budget))}/yr, "
+        f"STARTUP_FRACTION={startup_fraction:g} (update #{n_clicks})."
     )
     return (
         make_production_figure(result),
