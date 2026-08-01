@@ -2,12 +2,13 @@
 Agricultural fertilizer construction ramp-up model (N / P / K).
 
 Reproduces CAPEX + Ramp-up calculations from:
-  - Agricultural input ramp-up speed (3).xlsx                  → NH3 / N
+  - ALLFED N Fertiliser Scale-Up.xlsx                         → NH3 / N
   - potassium_fertilizer_ramp_up_speed_with_refs (1).xlsx     → Potash / K
   - phosphate_fertilizer_ramp_up_speed_with_refs_fixed_...xlsx → Phosphate / P
 
-Prompts for Annual World Construction Budget for each commodity one by one,
-then writes CSVs and PNG+SVG graphs into result/<commodity>/.
+Two separable scenario inputs (from ALLFED N Fertiliser Scale-Up):
+  - Startup % of Fully Scaled Production (commissioning break-in)
+  - fraction_functioning_after_disruption (plants surviving disruption)
 """
 
 from __future__ import annotations
@@ -26,12 +27,16 @@ TARGET_PLANT_SIZE_TPD = 2000.0
 COST_CAPACITY_EXPONENT = 0.7
 FAST_CONSTRUCTION_COST_FACTOR = 1.47
 FAST_CONSTRUCTION_SPEED_FACTOR = 0.32
-STARTUP_FRACTION = 0.5  # default; overridable via CLI / dashboard prompt
 PLANNING_TIME_WEEKS = 4.0
 N_WAVES = 12
 N_WEEKS = 490  # Excel weekly series: weeks 1..490
 
-DEFAULT_STARTUP_FRACTION = STARTUP_FRACTION
+# Defaults from ALLFED N Fertiliser Scale-Up.xlsx (C14 / C16)
+DEFAULT_STARTUP_PCT_OF_FULL = 0.5  # commissioning: new plant starts at this % of full
+DEFAULT_FRACTION_FUNCTIONING = 0.5  # disruption: share of financed plants that function
+
+# Back-compat alias used by older callers/tests
+DEFAULT_STARTUP_FRACTION = DEFAULT_FRACTION_FUNCTIONING
 
 OUTPUT_DIR = Path(__file__).resolve().parent
 RESULT_DIR = OUTPUT_DIR / "result"
@@ -201,16 +206,23 @@ def build_scenario(
     annual_budget: float,
     capex_per_plant: float,
     weeks_to_build: float,
-    startup_fraction: float = DEFAULT_STARTUP_FRACTION,
+    startup_pct_of_full: float = DEFAULT_STARTUP_PCT_OF_FULL,
+    fraction_functioning: float = DEFAULT_FRACTION_FUNCTIONING,
 ) -> ScenarioParams:
+    """
+    Build scenario parameters matching ALLFED N Fertiliser Scale-Up.xlsx:
+      plants/year = (budget / CAPEX) * fraction_functioning_after_disruption
+      plants/wave = plants/year / waves/year   (no second disruption multiply)
+      startup t/week = full t/week * Startup % of Fully Scaled Production
+    """
     corrected_capex = capex_per_plant * (1.0 - 0.091 - 0.066)
-    plants_per_year = (annual_budget / capex_per_plant) * startup_fraction
+    plants_per_year = (annual_budget / capex_per_plant) * fraction_functioning
     waves_per_year = 52.0 / weeks_to_build
     plants_per_wave = plants_per_year / waves_per_year
     plants_per_week = plants_per_year / 52.0
 
     scaled_production_tpw = TARGET_PLANT_SIZE_TPD * 7.0
-    startup_production_tpw = scaled_production_tpw
+    startup_production_tpw = scaled_production_tpw * startup_pct_of_full
 
     return ScenarioParams(
         name=name,
@@ -474,15 +486,10 @@ def prompt_annual_budget(commodity: CommodityConfig) -> float:
     return value
 
 
-def prompt_startup_fraction(
-    default: float = DEFAULT_STARTUP_FRACTION,
-) -> float:
+def _prompt_fraction(label: str, meaning: str, default: float) -> float:
     print("-" * 72)
-    print("Startup fraction (STARTUP_FRACTION)")
-    print(
-        "Applied to plants built per year: "
-        "(budget / CAPEX per plant) × STARTUP_FRACTION"
-    )
+    print(label)
+    print(meaning)
     print(f"(press Enter for default {default:g})")
     raw = input("> ").strip().replace(",", "")
     if not raw:
@@ -490,27 +497,63 @@ def prompt_startup_fraction(
     try:
         value = float(raw)
     except ValueError as exc:
-        raise SystemExit(f"Invalid STARTUP_FRACTION: {raw!r}") from exc
+        raise SystemExit(f"Invalid {label}: {raw!r}") from exc
     if not 0.0 < value <= 1.0:
-        raise SystemExit("STARTUP_FRACTION must be between 0 and 1 (e.g. 0.5).")
+        raise SystemExit(f"{label} must be between 0 and 1 (e.g. 0.5).")
     return value
+
+
+def prompt_startup_pct_of_full(
+    default: float = DEFAULT_STARTUP_PCT_OF_FULL,
+) -> float:
+    return _prompt_fraction(
+        "Startup % of Fully Scaled Production",
+        "Commissioning break-in: new plant output = full × this fraction "
+        "until startup time (build time / 4) ends.",
+        default,
+    )
+
+
+def prompt_fraction_functioning(
+    default: float = DEFAULT_FRACTION_FUNCTIONING,
+) -> float:
+    return _prompt_fraction(
+        "fraction_functioning_after_disruption",
+        "Disruption: plants/year = (budget / CAPEX) × this fraction.",
+        default,
+    )
+
+
+def prompt_startup_fraction(
+    default: float = DEFAULT_FRACTION_FUNCTIONING,
+) -> float:
+    """Back-compat wrapper; prefers fraction_functioning_after_disruption."""
+    return prompt_fraction_functioning(default)
 
 
 def simulate_commodity(
     commodity: CommodityConfig,
     annual_budget: float,
-    startup_fraction: float = DEFAULT_STARTUP_FRACTION,
+    startup_pct_of_full: float = DEFAULT_STARTUP_PCT_OF_FULL,
+    fraction_functioning: float = DEFAULT_FRACTION_FUNCTIONING,
+    startup_fraction: float | None = None,
 ) -> dict:
     """
     Run CAPEX + ramp-up for one commodity (no file I/O).
 
-    Returns dict with: commodity, budget, startup_fraction, capex, regular, fast,
-    summary, regular_waves, fast_waves, weekly.
+    startup_pct_of_full: Startup % of Fully Scaled Production (commissioning).
+    fraction_functioning: fraction_functioning_after_disruption (plant count).
+    startup_fraction: deprecated alias for fraction_functioning.
     """
+    if startup_fraction is not None:
+        fraction_functioning = startup_fraction
+
     if annual_budget <= 0:
         raise ValueError("annual_budget must be positive")
-    if not 0.0 < startup_fraction <= 1.0:
-        raise ValueError("startup_fraction must be between 0 and 1")
+    if not 0.0 < startup_pct_of_full <= 1.0:
+        raise ValueError("startup_pct_of_full must be between 0 and 1")
+    if not 0.0 < fraction_functioning <= 1.0:
+        raise ValueError("fraction_functioning must be between 0 and 1")
 
     capex = CAPEX_FUNCS[commodity.key]()
     regular_weeks = weeks_to_build_from_corrected_capex(
@@ -523,14 +566,16 @@ def simulate_commodity(
         annual_budget,
         capex.regular_capex_usd,
         regular_weeks,
-        startup_fraction=startup_fraction,
+        startup_pct_of_full=startup_pct_of_full,
+        fraction_functioning=fraction_functioning,
     )
     fast = build_scenario(
         "Fast Construction",
         annual_budget,
         capex.fast_capex_usd,
         fast_weeks,
-        startup_fraction=startup_fraction,
+        startup_pct_of_full=startup_pct_of_full,
+        fraction_functioning=fraction_functioning,
     )
 
     sanity_plants = (
@@ -550,9 +595,14 @@ def simulate_commodity(
                 "Fast": annual_budget,
             },
             {
-                "Parameter": "STARTUP_FRACTION",
-                "Regular": startup_fraction,
-                "Fast": startup_fraction,
+                "Parameter": "Startup % of Fully Scaled Production",
+                "Regular": startup_pct_of_full,
+                "Fast": startup_pct_of_full,
+            },
+            {
+                "Parameter": "fraction_functioning_after_disruption",
+                "Regular": fraction_functioning,
+                "Fast": fraction_functioning,
             },
             {
                 "Parameter": "Total Capital Investment Per Plant (USD)",
@@ -595,6 +645,11 @@ def simulate_commodity(
                 "Fast": fast.scaled_production_tpw,
             },
             {
+                "Parameter": "Single Facility Startup Production (tonnes/week)",
+                "Regular": regular.startup_production_tpw,
+                "Fast": fast.startup_production_tpw,
+            },
+            {
                 "Parameter": "Current production (Mt/yr)",
                 "Regular": commodity.current_mt_per_year,
                 "Fast": commodity.current_mt_per_year,
@@ -616,7 +671,10 @@ def simulate_commodity(
     return {
         "commodity": commodity,
         "budget": annual_budget,
-        "startup_fraction": startup_fraction,
+        "startup_pct_of_full": startup_pct_of_full,
+        "fraction_functioning": fraction_functioning,
+        # back-compat key
+        "startup_fraction": fraction_functioning,
         "capex": capex,
         "regular": regular,
         "fast": fast,
@@ -631,13 +689,19 @@ def run_commodity(
     commodity: CommodityConfig,
     annual_budget: float,
     result_root: Path,
-    startup_fraction: float = DEFAULT_STARTUP_FRACTION,
+    startup_pct_of_full: float = DEFAULT_STARTUP_PCT_OF_FULL,
+    fraction_functioning: float = DEFAULT_FRACTION_FUNCTIONING,
+    startup_fraction: float | None = None,
 ) -> list[Path]:
     out_dir = result_root / commodity.key
     out_dir.mkdir(parents=True, exist_ok=True)
 
     result = simulate_commodity(
-        commodity, annual_budget, startup_fraction=startup_fraction
+        commodity,
+        annual_budget,
+        startup_pct_of_full=startup_pct_of_full,
+        fraction_functioning=fraction_functioning,
+        startup_fraction=startup_fraction,
     )
     capex = result["capex"]
     regular = result["regular"]
@@ -705,25 +769,27 @@ def main() -> None:
     print("=" * 72)
     print("Agricultural Fertilizer Ramp-up Speed — N / P / K")
     print("=" * 72)
-    print("Enter STARTUP_FRACTION, then Annual World Construction Budget")
-    print("for each commodity one by one.")
+    print("Enter commissioning and disruption fractions, then budgets.")
     print()
 
     RESULT_DIR.mkdir(parents=True, exist_ok=True)
-    startup_fraction = prompt_startup_fraction()
+    startup_pct = prompt_startup_pct_of_full()
+    fraction_functioning = prompt_fraction_functioning()
 
     budgets: dict[str, float] = {}
     for commodity in COMMODITIES:
         budgets[commodity.key] = prompt_annual_budget(commodity)
 
-    print(f"\nUsing STARTUP_FRACTION = {startup_fraction:g}")
+    print(f"\nStartup % of Fully Scaled Production = {startup_pct:g}")
+    print(f"fraction_functioning_after_disruption = {fraction_functioning:g}")
     print("Running all three models...\n")
     for commodity in COMMODITIES:
         run_commodity(
             commodity,
             budgets[commodity.key],
             RESULT_DIR,
-            startup_fraction=startup_fraction,
+            startup_pct_of_full=startup_pct,
+            fraction_functioning=fraction_functioning,
         )
 
     print("\nDone. Graphs (PNG + SVG) and CSVs are under:")

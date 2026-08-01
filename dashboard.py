@@ -25,7 +25,8 @@ if _SRC.is_dir() and str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 from agricultural_input_rampup import COMMODITIES  # noqa: E402
-from agricultural_input_rampup import DEFAULT_STARTUP_FRACTION  # noqa: E402
+from agricultural_input_rampup import DEFAULT_FRACTION_FUNCTIONING  # noqa: E402
+from agricultural_input_rampup import DEFAULT_STARTUP_PCT_OF_FULL  # noqa: E402
 from agricultural_input_rampup import N_WEEKS  # noqa: E402
 from agricultural_input_rampup import simulate_commodity  # noqa: E402
 
@@ -187,7 +188,14 @@ def make_metrics(result: dict[str, Any]) -> list:
         ),
         ("Current production baseline", f"{commodity.current_mt_per_year:g} Mt/yr"),
         ("Budget", _fmt_money(result["budget"])),
-        ("STARTUP_FRACTION", f"{result['startup_fraction']:g}"),
+        (
+            "Startup % of Fully Scaled Production",
+            f"{result['startup_pct_of_full']:g}",
+        ),
+        (
+            "fraction_functioning_after_disruption",
+            f"{result['fraction_functioning']:g}",
+        ),
     ]
 
     return [
@@ -400,9 +408,9 @@ app.layout = html.Div(
                     [
                         html.H1("Fertilizer Ramp-up Dashboard"),
                         html.P(
-                            "Set Annual World Construction Budget for NH3, "
-                            "potassium, and phosphate, plus STARTUP_FRACTION, "
-                            "then explore regular vs fast construction ramp-up."
+                            "Set budgets for NH3, potassium, and phosphate, plus "
+                            "Startup % of Fully Scaled Production and "
+                            "fraction_functioning_after_disruption."
                         ),
                     ],
                     className="hero",
@@ -435,28 +443,57 @@ app.layout = html.Div(
                         ),
                         html.Div(
                             [
-                                html.Label(
-                                    "STARTUP_FRACTION "
-                                    "(plants/year = budget/CAPEX × fraction)"
-                                ),
-                                dcc.Input(
-                                    id="startup-fraction",
-                                    type="number",
-                                    value=DEFAULT_STARTUP_FRACTION,
-                                    min=0.01,
-                                    max=1.0,
-                                    step=0.05,
-                                    debounce=True,
-                                    className="budget-input",
+                                html.Div(
+                                    [
+                                        html.Label(
+                                            "Startup % of Fully Scaled Production"
+                                        ),
+                                        dcc.Input(
+                                            id="startup-pct",
+                                            type="number",
+                                            value=DEFAULT_STARTUP_PCT_OF_FULL,
+                                            min=0.01,
+                                            max=1.0,
+                                            step=0.05,
+                                            debounce=True,
+                                            className="budget-input",
+                                        ),
+                                        html.Div(
+                                            "Commissioning: new-plant output = "
+                                            f"full × this (default "
+                                            f"{DEFAULT_STARTUP_PCT_OF_FULL:g})",
+                                            className="hint",
+                                        ),
+                                    ],
+                                    className="budget-field",
                                 ),
                                 html.Div(
-                                    f"Default {DEFAULT_STARTUP_FRACTION:g} "
-                                    "(must be between 0 and 1)",
-                                    className="hint",
+                                    [
+                                        html.Label(
+                                            "fraction_functioning_after_disruption"
+                                        ),
+                                        dcc.Input(
+                                            id="fraction-functioning",
+                                            type="number",
+                                            value=DEFAULT_FRACTION_FUNCTIONING,
+                                            min=0.01,
+                                            max=1.0,
+                                            step=0.05,
+                                            debounce=True,
+                                            className="budget-input",
+                                        ),
+                                        html.Div(
+                                            "Disruption: plants/year = "
+                                            "(budget/CAPEX) × this (default "
+                                            f"{DEFAULT_FRACTION_FUNCTIONING:g})",
+                                            className="hint",
+                                        ),
+                                    ],
+                                    className="budget-field",
                                 ),
                             ],
-                            className="budget-field",
-                            style={"marginTop": "16px", "maxWidth": "360px"},
+                            className="budget-row",
+                            style={"marginTop": "16px"},
                         ),
                         html.Div(
                             [
@@ -546,10 +583,17 @@ app.layout = html.Div(
     State("budget-nh3", "value"),
     State("budget-potassium", "value"),
     State("budget-phosphate", "value"),
-    State("startup-fraction", "value"),
+    State("startup-pct", "value"),
+    State("fraction-functioning", "value"),
 )
 def update_dashboard(
-    n_clicks, commodity_key, budget_nh3, budget_k, budget_p, startup_fraction
+    n_clicks,
+    commodity_key,
+    budget_nh3,
+    budget_k,
+    budget_p,
+    startup_pct,
+    fraction_functioning,
 ):
     budgets = {
         "nh3": budget_nh3,
@@ -564,28 +608,41 @@ def update_dashboard(
         empty = _empty_fig("Waiting for budget")
         return empty, empty, [], [], msg
 
-    if startup_fraction is None:
-        startup_fraction = DEFAULT_STARTUP_FRACTION
+    if startup_pct is None:
+        startup_pct = DEFAULT_STARTUP_PCT_OF_FULL
+    if fraction_functioning is None:
+        fraction_functioning = DEFAULT_FRACTION_FUNCTIONING
+
     try:
-        startup_fraction = float(startup_fraction)
+        startup_pct = float(startup_pct)
+        fraction_functioning = float(fraction_functioning)
     except (TypeError, ValueError):
-        empty = _empty_fig("Invalid STARTUP_FRACTION")
+        empty = _empty_fig("Invalid fraction inputs")
         return (
             empty,
             empty,
             [],
             [],
-            "STARTUP_FRACTION must be a number between 0 and 1.",
+            "Both fraction inputs must be numbers between 0 and 1.",
         )
 
-    if not 0.0 < startup_fraction <= 1.0:
-        empty = _empty_fig("Invalid STARTUP_FRACTION")
-        return empty, empty, [], [], "STARTUP_FRACTION must be between 0 and 1."
+    if not 0.0 < startup_pct <= 1.0 or not 0.0 < fraction_functioning <= 1.0:
+        empty = _empty_fig("Invalid fraction inputs")
+        return (
+            empty,
+            empty,
+            [],
+            [],
+            "Startup % and fraction_functioning must each be between 0 and 1.",
+        )
 
     commodity = COMMODITY_BY_KEY[selected]
     try:
         result = simulate_commodity(
-            commodity, float(budget), startup_fraction=startup_fraction
+            commodity,
+            float(budget),
+            startup_pct_of_full=startup_pct,
+            fraction_functioning=fraction_functioning,
         )
     except Exception as exc:  # noqa: BLE001 - show in UI
         empty = _empty_fig("Error")
@@ -593,7 +650,8 @@ def update_dashboard(
 
     status = (
         f"Showing {commodity.label} at {_fmt_money(float(budget))}/yr, "
-        f"STARTUP_FRACTION={startup_fraction:g} (update #{n_clicks})."
+        f"startup%={startup_pct:g}, functioning={fraction_functioning:g} "
+        f"(update #{n_clicks})."
     )
     return (
         make_production_figure(result),
