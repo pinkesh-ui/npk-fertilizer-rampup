@@ -483,9 +483,9 @@ app.layout = html.Div(
                                             className="budget-input",
                                         ),
                                         html.Div(
-                                            "Disruption: plants/year = "
-                                            "(budget/CAPEX) × this (default "
-                                            f"{DEFAULT_FRACTION_FUNCTIONING:g})",
+                                            "Disruption: surviving existing plants + "
+                                            "new plants/year = (budget/CAPEX) × this "
+                                            f"(default {DEFAULT_FRACTION_FUNCTIONING:g})",
                                             className="hint",
                                         ),
                                     ],

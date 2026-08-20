@@ -16,15 +16,30 @@ def test_simulate_nh3_default_budget():
     assert len(result["weekly"]) == 490
     assert result["weekly"]["Regular megatonnes/year"].iloc[-1] > 0
     assert result["startup_pct_of_full"] == 0.5
-    assert result["fraction_functioning"] == 0.5
-    assert result["startup_fraction"] == 0.5  # back-compat alias
+    assert result["fraction_functioning"] == 0.4
+    assert result["startup_fraction"] == 0.4  # back-compat alias
+
+
+def test_baseline_starts_at_fraction_functioning():
+    commodity = next(c for c in COMMODITIES if c.key == "nh3")
+    ff = 0.4
+    result = simulate_commodity(
+        commodity, commodity.default_annual_budget_usd, fraction_functioning=ff
+    )
+    weekly = result["weekly"]
+    first = weekly.iloc[0]
+    surviving_mt = ff * commodity.current_mt_per_year
+    assert first["Regular megatonnes/year"] == surviving_mt
+    assert first["Regular Multiple of Current Production"] == ff
+    assert first["Fast megatonnes/year"] == surviving_mt
+    assert first["Fast Multiple of Current Production"] == ff
 
 
 def test_fraction_functioning_scales_plants():
     commodity = next(c for c in COMMODITIES if c.key == "nh3")
     budget = commodity.default_annual_budget_usd
-    half = simulate_commodity(commodity, budget, fraction_functioning=0.5)
-    full = simulate_commodity(commodity, budget, fraction_functioning=1.0)
+    half = simulate_commodity(commodity, budget, fraction_functioning=0.4)
+    full = simulate_commodity(commodity, budget, fraction_functioning=0.8)
     assert full["regular"].plants_per_year == 2 * half["regular"].plants_per_year
 
 
@@ -40,8 +55,8 @@ def test_startup_pct_scales_startup_production_not_plants():
     )
 
 
-def test_excel_nh3_default_plants_per_year():
-    """ALLFED N sheet: budget/CAPEX × 0.5 ≈ 678 plants/year at default budget."""
+def test_excel_nh3_plants_per_year_at_half_fraction():
+    """budget/CAPEX × 0.5 ≈ 678 plants/year at default budget (Excel C16=0.5)."""
     commodity = next(c for c in COMMODITIES if c.key == "nh3")
     result = simulate_commodity(
         commodity,
@@ -49,7 +64,6 @@ def test_excel_nh3_default_plants_per_year():
         startup_pct_of_full=0.5,
         fraction_functioning=0.5,
     )
-    # ~758e9 / ~560e6 * 0.5 ≈ 678 (exact depends on CAPEX scaling)
     assert 650 < result["regular"].plants_per_year < 710
     assert result["regular"].startup_production_tpw == (
         result["regular"].scaled_production_tpw * 0.5

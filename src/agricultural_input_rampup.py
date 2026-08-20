@@ -31,9 +31,10 @@ PLANNING_TIME_WEEKS = 4.0
 N_WAVES = 12
 N_WEEKS = 490  # Excel weekly series: weeks 1..490
 
-# Defaults from ALLFED N Fertiliser Scale-Up.xlsx (C14 / C16)
+# Defaults from ALLFED N Fertiliser Scale-Up.xlsx (C14); C16 was 0.5 in Excel but
+# ALLFED review uses 0.40 for surviving existing plants + new-plant build rate.
 DEFAULT_STARTUP_PCT_OF_FULL = 0.5  # commissioning: new plant starts at this % of full
-DEFAULT_FRACTION_FUNCTIONING = 0.5  # disruption: share of financed plants that function
+DEFAULT_FRACTION_FUNCTIONING = 0.4  # disruption: surviving existing + new build share
 
 # Back-compat alias used by older callers/tests
 DEFAULT_STARTUP_FRACTION = DEFAULT_FRACTION_FUNCTIONING
@@ -245,8 +246,11 @@ def build_scenario(
 def build_wave_table(
     scenario: ScenarioParams,
     current_mt_per_year: float,
+    fraction_functioning: float = DEFAULT_FRACTION_FUNCTIONING,
     n_waves: int = N_WAVES,
 ) -> pd.DataFrame:
+    """Wave milestones; totals include surviving pre-disruption plants at ``fraction_functioning``."""
+    surviving_mtpy = fraction_functioning * current_mt_per_year
     rows: list[dict] = []
     prev_full_tpw = 0.0
 
@@ -263,7 +267,8 @@ def build_wave_table(
         startup_years = (
             scenario.time_to_construct_wave_years * wave + scenario.planning_time_years
         )
-        startup_mtpy = startup_tpw / 1_000_000.0 * 52.0
+        new_startup_mtpy = startup_tpw / 1_000_000.0 * 52.0
+        total_startup_mtpy = surviving_mtpy + new_startup_mtpy
         rows.append(
             {
                 "Wave": wave,
@@ -272,15 +277,15 @@ def build_wave_table(
                 "tonnes/week": startup_tpw,
                 "Weeks": startup_years * 52.0,
                 "Years": startup_years,
-                "Megatonnes/year": startup_mtpy,
-                "Multiple of Current Production": startup_mtpy / current_mt_per_year
-                + 1.0,
+                "Megatonnes/year": total_startup_mtpy,
+                "Multiple of Current Production": total_startup_mtpy / current_mt_per_year,
             }
         )
 
         full_tpw = plants * scenario.scaled_production_tpw
         full_years = startup_years + scenario.startup_time_years
-        full_mtpy = full_tpw / 1_000_000.0 * 52.0
+        new_full_mtpy = full_tpw / 1_000_000.0 * 52.0
+        total_full_mtpy = surviving_mtpy + new_full_mtpy
         rows.append(
             {
                 "Wave": wave,
@@ -289,8 +294,8 @@ def build_wave_table(
                 "tonnes/week": full_tpw,
                 "Weeks": full_years * 52.0,
                 "Years": full_years,
-                "Megatonnes/year": full_mtpy,
-                "Multiple of Current Production": full_mtpy / current_mt_per_year + 1.0,
+                "Megatonnes/year": total_full_mtpy,
+                "Multiple of Current Production": total_full_mtpy / current_mt_per_year,
             }
         )
         prev_full_tpw = full_tpw
@@ -310,8 +315,11 @@ def build_weekly_series(
     regular_waves: pd.DataFrame,
     fast_waves: pd.DataFrame,
     current_mt_per_year: float,
+    fraction_functioning: float = DEFAULT_FRACTION_FUNCTIONING,
     n_weeks: int = N_WEEKS,
 ) -> pd.DataFrame:
+    """Weekly step series; production and multiples include surviving baseline plants."""
+    surviving_mtpy = fraction_functioning * current_mt_per_year
     # Regular plant IFS in the workbooks covers waves 1..6 (enough for ~490 weeks)
     reg_plant_milestones = regular_waves[
         regular_waves["Production Level"] == "startup production"
@@ -338,13 +346,15 @@ def build_weekly_series(
 
         reg_plants = _step_lookup(week, reg_plant_weeks, reg_plant_vals)
         reg_tpw = _step_lookup(week, reg_prod_weeks, reg_prod_vals)
-        reg_mtpy = reg_tpw / 1_000_000.0 * 52.0
-        reg_mult = reg_mtpy / current_mt_per_year + 1.0
+        reg_new_mtpy = reg_tpw / 1_000_000.0 * 52.0
+        reg_mtpy = surviving_mtpy + reg_new_mtpy
+        reg_mult = reg_mtpy / current_mt_per_year
 
         fast_plants = _step_lookup(week, fast_plant_weeks, fast_plant_vals)
         fast_tpw = _step_lookup(week, fast_prod_weeks, fast_prod_vals)
-        fast_mtpy = fast_tpw / 1_000_000.0 * 52.0
-        fast_mult = fast_mtpy / current_mt_per_year + 1.0
+        fast_new_mtpy = fast_tpw / 1_000_000.0 * 52.0
+        fast_mtpy = surviving_mtpy + fast_new_mtpy
+        fast_mult = fast_mtpy / current_mt_per_year
 
         rows.append(
             {
@@ -352,10 +362,12 @@ def build_weekly_series(
                 "Years": years,
                 "Regular Plants": reg_plants,
                 "Regular tonnes/week": reg_tpw,
+                "Regular new megatonnes/year": reg_new_mtpy,
                 "Regular megatonnes/year": reg_mtpy,
                 "Regular Multiple of Current Production": reg_mult,
                 "Fast Plants": fast_plants,
                 "Fast tonnes/week": fast_tpw,
+                "Fast new megatonnes/year": fast_new_mtpy,
                 "Fast megatonnes/year": fast_mtpy,
                 "Fast Multiple of Current Production": fast_mult,
             }
@@ -542,7 +554,8 @@ def simulate_commodity(
     Run CAPEX + ramp-up for one commodity (no file I/O).
 
     startup_pct_of_full: Startup % of Fully Scaled Production (commissioning).
-    fraction_functioning: fraction_functioning_after_disruption (plant count).
+    fraction_functioning: fraction_functioning_after_disruption — surviving share of
+        existing plants (production floor) and scale on new plants/year.
     startup_fraction: deprecated alias for fraction_functioning.
     """
     if startup_fraction is not None:
@@ -655,6 +668,11 @@ def simulate_commodity(
                 "Fast": commodity.current_mt_per_year,
             },
             {
+                "Parameter": "Surviving production baseline (Mt/yr)",
+                "Regular": fraction_functioning * commodity.current_mt_per_year,
+                "Fast": fraction_functioning * commodity.current_mt_per_year,
+            },
+            {
                 "Parameter": "Sanity: plants needed for current production @ 2000 t/d",
                 "Regular": sanity_plants,
                 "Fast": sanity_plants,
@@ -662,10 +680,17 @@ def simulate_commodity(
         ]
     )
 
-    regular_waves = build_wave_table(regular, commodity.current_mt_per_year)
-    fast_waves = build_wave_table(fast, commodity.current_mt_per_year)
+    regular_waves = build_wave_table(
+        regular, commodity.current_mt_per_year, fraction_functioning
+    )
+    fast_waves = build_wave_table(
+        fast, commodity.current_mt_per_year, fraction_functioning
+    )
     weekly = build_weekly_series(
-        regular_waves, fast_waves, commodity.current_mt_per_year
+        regular_waves,
+        fast_waves,
+        commodity.current_mt_per_year,
+        fraction_functioning,
     )
 
     return {
