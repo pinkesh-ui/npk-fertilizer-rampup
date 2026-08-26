@@ -397,6 +397,19 @@ def _style_axes(ax) -> None:
     ax.grid(True, which="major", alpha=0.3)
 
 
+def _series_with_pre_disruption_multiple(
+    years: np.ndarray, multiples: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Hold multiple = 1.0 for t < 0, then drop at t = 0 to surviving baseline."""
+    years = np.asarray(years, dtype=float)
+    multiples = np.asarray(multiples, dtype=float)
+    if len(years) == 0:
+        return np.array([-0.25, 0.0]), np.array([1.0, 1.0])
+    x = np.concatenate(([-0.25, 0.0, 0.0], years))
+    y = np.concatenate(([1.0, 1.0, float(multiples[0])], multiples))
+    return x, y
+
+
 def plot_graphs(
     commodity: CommodityConfig,
     weekly: pd.DataFrame,
@@ -409,20 +422,31 @@ def plot_graphs(
     years = weekly["Years"].to_numpy()
     budget_label = f"Budget = ${annual_budget:,.0f}/yr"
     stem = commodity.key
+    reg_mult_x, reg_mult_y = _series_with_pre_disruption_multiple(
+        years, weekly["Regular Multiple of Current Production"].to_numpy()
+    )
+    fast_mult_x, fast_mult_y = _series_with_pre_disruption_multiple(
+        years, weekly["Fast Multiple of Current Production"].to_numpy()
+    )
 
     fig1, ax1 = plt.subplots(figsize=(12, 6))
     ax1.plot(
         years,
-        weekly["Regular megatonnes/year"],
+        weekly["Regular new megatonnes/year"],
         label="Regular Construction",
         linewidth=2,
     )
     ax1.plot(
-        years, weekly["Fast megatonnes/year"], label="Fast Construction", linewidth=2
+        years,
+        weekly["Fast new megatonnes/year"],
+        label="Fast Construction",
+        linewidth=2,
     )
-    ax1.set_title(f"{commodity.production_chart_title}\n({budget_label})")
+    ax1.set_title(
+        f"{commodity.production_chart_title} (New Factory Production)\n({budget_label})"
+    )
     ax1.set_xlabel("Years")
-    ax1.set_ylabel("megatonnes/year")
+    ax1.set_ylabel("new megatonnes/year")
     ax1.legend()
     _style_axes(ax1)
     fig1.tight_layout()
@@ -430,46 +454,43 @@ def plot_graphs(
 
     fig2, ax2 = plt.subplots(figsize=(12, 6))
     ax2.plot(
-        years,
-        weekly["Regular Multiple of Current Production"],
+        reg_mult_x,
+        reg_mult_y,
         label="Regular Construction",
         linewidth=2,
     )
     ax2.plot(
-        years,
-        weekly["Fast Multiple of Current Production"],
+        fast_mult_x,
+        fast_mult_y,
         label="Fast Construction",
         linewidth=2,
     )
     ax2.set_title(f"{commodity.multiple_chart_title}\n({budget_label})")
     ax2.set_xlabel("Years")
     ax2.set_ylabel(commodity.multiple_y_label)
+    ax2.set_xlim(-0.25, float(years.max()) + 0.05)
     ax2.legend()
     _style_axes(ax2)
     fig2.tight_layout()
     paths.extend(_save_figure(fig2, out_dir, f"{stem}_multiple_rampup"))
 
     fig3, axes = plt.subplots(1, 2, figsize=(16, 6))
-    axes[0].plot(years, weekly["Regular megatonnes/year"], label="Regular", linewidth=2)
-    axes[0].plot(years, weekly["Fast megatonnes/year"], label="Fast", linewidth=2)
-    axes[0].set_title(commodity.production_chart_title)
+    axes[0].plot(
+        years, weekly["Regular new megatonnes/year"], label="Regular", linewidth=2
+    )
+    axes[0].plot(years, weekly["Fast new megatonnes/year"], label="Fast", linewidth=2)
+    axes[0].set_title(f"{commodity.production_chart_title} (New Factory Production)")
     axes[0].set_xlabel("Years")
-    axes[0].set_ylabel("megatonnes/year")
+    axes[0].set_ylabel("new megatonnes/year")
     axes[0].legend()
     _style_axes(axes[0])
 
-    axes[1].plot(
-        years,
-        weekly["Regular Multiple of Current Production"],
-        label="Regular",
-        linewidth=2,
-    )
-    axes[1].plot(
-        years, weekly["Fast Multiple of Current Production"], label="Fast", linewidth=2
-    )
+    axes[1].plot(reg_mult_x, reg_mult_y, label="Regular", linewidth=2)
+    axes[1].plot(fast_mult_x, fast_mult_y, label="Fast", linewidth=2)
     axes[1].set_title(commodity.multiple_chart_title)
     axes[1].set_xlabel("Years")
     axes[1].set_ylabel(commodity.multiple_y_label)
+    axes[1].set_xlim(-0.25, float(years.max()) + 0.05)
     axes[1].legend()
     _style_axes(axes[1])
 

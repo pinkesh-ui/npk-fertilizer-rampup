@@ -83,7 +83,7 @@ def make_production_figure(result: dict[str, Any]) -> go.Figure:
     fig.add_trace(
         go.Scatter(
             x=weekly["Years"],
-            y=weekly["Regular megatonnes/year"],
+            y=weekly["Regular new megatonnes/year"],
             mode="lines",
             name="Regular Construction",
             line=dict(color=COLORS["regular"], width=2.5, shape="hv"),
@@ -92,16 +92,32 @@ def make_production_figure(result: dict[str, Any]) -> go.Figure:
     fig.add_trace(
         go.Scatter(
             x=weekly["Years"],
-            y=weekly["Fast megatonnes/year"],
+            y=weekly["Fast new megatonnes/year"],
             mode="lines",
             name="Fast Construction",
             line=dict(color=COLORS["fast"], width=2.5, shape="hv"),
         )
     )
+    fig.add_trace(
+        go.Scatter(
+            x=[-0.25, 0.0],
+            y=[commodity.current_mt_per_year, commodity.current_mt_per_year],
+            mode="lines",
+            name="Pre-disruption current production (100%)",
+            line=dict(color="#7f8c8d", width=2, dash="dot"),
+            hovertemplate=(
+                "Pre-disruption baseline: "
+                f"{commodity.current_mt_per_year:g} Mt/yr<extra></extra>"
+            ),
+        )
+    )
     fig.update_layout(
-        title=f"{commodity.production_chart_title}<br><sup>Budget = {_fmt_money(budget)}/yr</sup>",
+        title=(
+            f"{commodity.production_chart_title} (New Factory Production)<br>"
+            f"<sup>Budget = {_fmt_money(budget)}/yr</sup>"
+        ),
         xaxis_title="Years",
-        yaxis_title="megatonnes/year",
+        yaxis_title="new megatonnes/year",
         template="plotly_white",
         paper_bgcolor=COLORS["panel"],
         plot_bgcolor=COLORS["panel"],
@@ -109,33 +125,58 @@ def make_production_figure(result: dict[str, Any]) -> go.Figure:
         legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
         margin=dict(l=60, r=20, t=80, b=50),
         height=440,
-        xaxis=dict(dtick=0.25, tickangle=-90, showgrid=True, gridcolor="#ece7de"),
+        xaxis=dict(
+            range=[-0.25, float(weekly["Years"].max()) + 0.05],
+            dtick=0.25,
+            tickangle=-90,
+            showgrid=True,
+            gridcolor="#ece7de",
+        ),
         yaxis=dict(showgrid=True, gridcolor="#ece7de", tickformat=".2~s"),
     )
     return fig
+
+
+def _series_with_pre_disruption_multiple(years, multiples):
+    """Prepend t<0 at 1.0 (full current), then vertical drop at t=0 to surviving baseline."""
+    years = list(years)
+    multiples = list(multiples)
+    if not years:
+        return [-0.25, 0.0], [1.0, 1.0]
+    # Hold at 1.0 until t=0, then drop to post-disruption multiple and continue.
+    x = [-0.25, 0.0, 0.0] + years
+    y = [1.0, 1.0, multiples[0]] + multiples
+    return x, y
 
 
 def make_multiple_figure(result: dict[str, Any]) -> go.Figure:
     commodity = result["commodity"]
     weekly = result["weekly"]
     budget = result["budget"]
+    years = weekly["Years"]
+    reg_x, reg_y = _series_with_pre_disruption_multiple(
+        years, weekly["Regular Multiple of Current Production"]
+    )
+    fast_x, fast_y = _series_with_pre_disruption_multiple(
+        years, weekly["Fast Multiple of Current Production"]
+    )
     fig = go.Figure()
     fig.add_trace(
         go.Scatter(
-            x=weekly["Years"],
-            y=weekly["Regular Multiple of Current Production"],
+            x=reg_x,
+            y=reg_y,
             mode="lines",
             name="Regular Construction",
-            line=dict(color=COLORS["regular"], width=2.5, shape="hv"),
+            line=dict(color=COLORS["regular"], width=2.5),
         )
     )
     fig.add_trace(
         go.Scatter(
-            x=weekly["Years"],
-            y=weekly["Fast Multiple of Current Production"],
+            x=fast_x,
+            y=fast_y,
             mode="lines",
             name="Fast Construction",
-            line=dict(color=COLORS["fast"], width=2.5, shape="hv"),
+            line=dict(color=COLORS["fast"], width=2.5),
         )
     )
     fig.update_layout(
@@ -149,7 +190,13 @@ def make_multiple_figure(result: dict[str, Any]) -> go.Figure:
         legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
         margin=dict(l=60, r=20, t=80, b=50),
         height=440,
-        xaxis=dict(dtick=0.25, tickangle=-90, showgrid=True, gridcolor="#ece7de"),
+        xaxis=dict(
+            range=[-0.25, float(weekly["Years"].max()) + 0.05],
+            dtick=0.25,
+            tickangle=-90,
+            showgrid=True,
+            gridcolor="#ece7de",
+        ),
         yaxis=dict(showgrid=True, gridcolor="#ece7de", tickformat=".2~s"),
     )
     return fig
@@ -171,20 +218,20 @@ def make_metrics(result: dict[str, Any]) -> list:
         ("Weeks to build (regular)", f"{regular.weeks_to_build:,.2f}"),
         ("Weeks to build (fast)", f"{fast.weeks_to_build:,.2f}"),
         (
-            f"End ~{horizon:.1f} yr production (regular)",
-            f"{last['Regular megatonnes/year']:,.1f} Mt/yr",
+            f"End ~{horizon:.1f} yr new production (regular)",
+            f"{last['Regular new megatonnes/year']:,.1f} Mt/yr",
         ),
         (
-            f"End ~{horizon:.1f} yr production (fast)",
-            f"{last['Fast megatonnes/year']:,.1f} Mt/yr",
+            f"End ~{horizon:.1f} yr new production (fast)",
+            f"{last['Fast new megatonnes/year']:,.1f} Mt/yr",
         ),
         (
             "Multiple of current (regular)",
-            f"{last['Regular Multiple of Current Production']:.2f}×",
+            f"{last['Regular Multiple of Current Production']:.2f}x",
         ),
         (
             "Multiple of current (fast)",
-            f"{last['Fast Multiple of Current Production']:.2f}×",
+            f"{last['Fast Multiple of Current Production']:.2f}x",
         ),
         ("Current production baseline", f"{commodity.current_mt_per_year:g} Mt/yr"),
         ("Budget", _fmt_money(result["budget"])),
@@ -410,7 +457,7 @@ app.layout = html.Div(
                         html.P(
                             "Set budgets for NH3, potassium, and phosphate, plus "
                             "Startup % of Fully Scaled Production and "
-                            "fraction_functioning_after_disruption."
+                            "fraction_functioning_after_disruption. Production chart shows new-factory output only."
                         ),
                     ],
                     className="hero",
@@ -460,7 +507,7 @@ app.layout = html.Div(
                                         ),
                                         html.Div(
                                             "Commissioning: new-plant output = "
-                                            f"full × this (default "
+                                            f"full x this (default "
                                             f"{DEFAULT_STARTUP_PCT_OF_FULL:g})",
                                             className="hint",
                                         ),
@@ -484,7 +531,7 @@ app.layout = html.Div(
                                         ),
                                         html.Div(
                                             "Disruption: surviving existing plants + "
-                                            "new plants/year = (budget/CAPEX) × this "
+                                            "new plants/year = (budget/CAPEX) x this "
                                             f"(default {DEFAULT_FRACTION_FUNCTIONING:g})",
                                             className="hint",
                                         ),
