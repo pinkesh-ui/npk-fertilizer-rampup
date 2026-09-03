@@ -1,18 +1,25 @@
 """
 Agricultural input construction ramp-up model.
 
+Reference template
+  - N-type fertilizer (NH3 / ALLFED N Fertiliser Scale-Up.xlsx) is the master
+    template for timing, commissioning, disruption, and chart semantics.
+  - Every other commodity (K, P, H2SO4, herbicides, insecticides, fungicides)
+    reuses that same ramp-up structure; only CAPEX benchmarks and plant size
+    differ by commodity workbook.
+
 Commodities:
-  - Fertilizer: NH3 / N, potassium (K), phosphate (P)
+  - Fertilizer: NH3 / N (reference), potassium (K), phosphate (P)
   - Sulfuric acid (H2SO4)
   - Pesticides: herbicides, insecticides, fungicides
 
 Workbook sources:
-  - ALLFED N Fertiliser Scale-Up.xlsx
+  - ALLFED N Fertiliser Scale-Up.xlsx              → reference template
   - potassium / phosphate fertilizer ramp-up workbooks
   - H2SO4_ramp_up_UNIDO_based_corrected.xlsx
   - pesticide_scale_up_template_logic_with_graphs.xlsx
 
-Shared scenario inputs (same for every commodity):
+Shared scenario inputs (from N template; applied to all commodities):
   - Startup % of Fully Scaled Production (default 0.5)
   - fraction_functioning_after_disruption (default 0.4)
 """
@@ -28,7 +35,7 @@ import pandas as pd
 
 # matplotlib is only needed for offline PNG/SVG export (not the Dash dashboard)
 
-# Shared construction / scaling assumptions (same across the three workbooks)
+# Shared construction / scaling assumptions (N-fertilizer template)
 TARGET_PLANT_SIZE_TPD = 2000.0
 COST_CAPACITY_EXPONENT = 0.7
 FAST_CONSTRUCTION_COST_FACTOR = 1.47
@@ -36,6 +43,10 @@ FAST_CONSTRUCTION_SPEED_FACTOR = 0.32
 PLANNING_TIME_WEEKS = 4.0
 N_WAVES = 12
 N_WEEKS = 490  # Excel weekly series: weeks 1..490
+
+# N-fertilizer reference (ALLFED N Fertiliser Scale-Up.xlsx)
+REFERENCE_COMMODITY_KEY = "nh3"
+REFERENCE_ANNUAL_BUDGET_USD = 758_000_000_000.0
 
 # Defaults from ALLFED N Fertiliser Scale-Up.xlsx (C14); C16 was 0.5 in Excel but
 # ALLFED review uses 0.40 for surviving existing plants + new-plant build rate.
@@ -239,7 +250,7 @@ COMMODITIES: list[CommodityConfig] = [
         label="NH3 (Ammonia / N)",
         product_short="NH3",
         current_mt_per_year=240.0,
-        default_annual_budget_usd=758_000_000_000.0,
+        default_annual_budget_usd=REFERENCE_ANNUAL_BUDGET_USD,
         production_chart_title="NH3/YEAR PRODUCTION RAMP-UP",
         multiple_chart_title="MULTIPLE OF CURRENT NH3 PRODUCTION RAMP-UP",
         multiple_y_label="Multiple of current NH3 production",
@@ -249,7 +260,7 @@ COMMODITIES: list[CommodityConfig] = [
         label="Potassium Fertilizer (K / Potash / MOP)",
         product_short="K",
         current_mt_per_year=41.6,
-        default_annual_budget_usd=758_000_000_000.0 * 0.4,
+        default_annual_budget_usd=REFERENCE_ANNUAL_BUDGET_USD * 0.4,
         production_chart_title="K FERTILIZER/YEAR PRODUCTION RAMP-UP",
         multiple_chart_title="MULTIPLE OF CURRENT POTASH PRODUCTION RAMP-UP",
         multiple_y_label="Multiple of current potash production",
@@ -259,7 +270,7 @@ COMMODITIES: list[CommodityConfig] = [
         label="Phosphate Fertilizer (P / TSP / MAP+DAP)",
         product_short="P",
         current_mt_per_year=47.8,
-        default_annual_budget_usd=758_000_000_000.0 * 0.4,
+        default_annual_budget_usd=REFERENCE_ANNUAL_BUDGET_USD * 0.4,
         production_chart_title="MAP+DAP/YEAR PRODUCTION RAMP-UP",
         multiple_chart_title="MULTIPLE OF CURRENT MAP+DAP PRODUCTION RAMP-UP",
         multiple_y_label="Multiple of current MAP+DAP production",

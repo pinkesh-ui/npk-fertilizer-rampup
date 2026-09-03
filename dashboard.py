@@ -457,11 +457,12 @@ app.layout = html.Div(
                     [
                         html.H1("Agricultural Input Ramp-up Dashboard"),
                         html.P(
+                            "N-fertilizer (NH3) is the reference template. "
                             "Set budgets for fertilizer (NH3, K, P), sulfuric acid, "
                             "and pesticides, plus Startup % of Fully Scaled Production "
                             "and fraction_functioning_after_disruption (defaults 0.5 / 0.4). "
                             "Production chart shows new-factory output only. "
-                            "Shared $758B three-way budget split comes next."
+                            "Shared $758B three-way budget split (relative to N) comes next."
                         ),
                     ],
                     className="hero",
