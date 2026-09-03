@@ -90,11 +90,23 @@ docker run -p 8050:8050 -e PORT=8050 npk-fertilizer-rampup
 
 ## Defaults
 
+Shared construction pot: **$758B/yr** (`REFERENCE_ANNUAL_BUDGET_USD`), split by
+equal-pace weights \(B_i \propto\) (CAPEX $/tpa) × (current t/yr) so commodities
+recover their own current capacity at the same pace. NH3 remains the ramp-up
+timing/chart template.
+
 | Commodity | Default annual budget (USD) | Current production baseline |
 |-----------|----------------------------|-----------------------------|
-| NH3 | 758e9 | 240 Mt/yr |
-| Potassium | 758e9 × 0.4 | 41.6 Mt/yr potash |
-| Phosphate | 758e9 × 0.4 | 47.8 Mt/yr |
+| NH3 | ~$555B (~73% of pot) | 240 Mt/yr |
+| Phosphate | ~$98B | 47.8 Mt/yr |
+| Potassium | ~$78B | 41.6 Mt/yr potash |
+| Herbicides | ~$12B | 1.90 Mt/yr |
+| Fungicides | ~$11B | 0.82 Mt/yr |
+| Insecticides | ~$2.7B | 0.82 Mt/yr |
+| H2SO4 | ~$2.1B | 150 Mt/yr |
+
+Category totals ≈ fertilizer **96.4%**, pesticides **3.4%**, H2SO4 **0.3%**. Exact
+defaults are computed at import time from CAPEX functions.
 
 ## License
 

@@ -1,6 +1,10 @@
 """Basic smoke tests for the agricultural input ramp-up model."""
 
-from agricultural_input_rampup import COMMODITIES, simulate_commodity
+from agricultural_input_rampup import COMMODITIES
+from agricultural_input_rampup import REFERENCE_ANNUAL_BUDGET_USD
+from agricultural_input_rampup import allocate_equal_pace_budgets
+from agricultural_input_rampup import category_budget_totals
+from agricultural_input_rampup import simulate_commodity
 
 
 def test_commodities_present():
@@ -14,6 +18,17 @@ def test_commodities_present():
         "insecticide",
         "fungicide",
     }
+
+
+def test_equal_pace_allocation_sums_to_reference_pot():
+    budgets = allocate_equal_pace_budgets(REFERENCE_ANNUAL_BUDGET_USD)
+    assert abs(sum(budgets.values()) - REFERENCE_ANNUAL_BUDGET_USD) < 1.0
+    # Fertilizer dominates; NH3 is the largest single share.
+    cats = category_budget_totals()
+    assert cats["fertilizer"] > cats["pesticides"] > cats["h2so4"]
+    assert budgets["nh3"] == max(budgets.values())
+    for commodity in COMMODITIES:
+        assert abs(commodity.default_annual_budget_usd - budgets[commodity.key]) < 1.0
 
 
 def test_simulate_nh3_default_budget():
@@ -64,11 +79,11 @@ def test_startup_pct_scales_startup_production_not_plants():
 
 
 def test_excel_nh3_plants_per_year_at_half_fraction():
-    """budget/CAPEX × 0.5 ≈ 678 plants/year at default budget (Excel C16=0.5)."""
+    """budget/CAPEX × 0.5 ≈ 678 plants/year at full $758B NH3 budget (Excel C16=0.5)."""
     commodity = next(c for c in COMMODITIES if c.key == "nh3")
     result = simulate_commodity(
         commodity,
-        commodity.default_annual_budget_usd,
+        REFERENCE_ANNUAL_BUDGET_USD,
         startup_pct_of_full=0.5,
         fraction_functioning=0.5,
     )

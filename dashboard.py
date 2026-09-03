@@ -28,9 +28,14 @@ from agricultural_input_rampup import COMMODITIES  # noqa: E402
 from agricultural_input_rampup import DEFAULT_FRACTION_FUNCTIONING  # noqa: E402
 from agricultural_input_rampup import DEFAULT_STARTUP_PCT_OF_FULL  # noqa: E402
 from agricultural_input_rampup import N_WEEKS  # noqa: E402
+from agricultural_input_rampup import REFERENCE_ANNUAL_BUDGET_USD  # noqa: E402
+from agricultural_input_rampup import allocation_summary_table  # noqa: E402
+from agricultural_input_rampup import category_budget_totals  # noqa: E402
 from agricultural_input_rampup import simulate_commodity  # noqa: E402
 
 COMMODITY_BY_KEY = {c.key: c for c in COMMODITIES}
+_ALLOCATION_DF = allocation_summary_table(REFERENCE_ANNUAL_BUDGET_USD)
+_CATEGORY_TOTALS = category_budget_totals(REFERENCE_ANNUAL_BUDGET_USD)
 
 COLORS = {
     "regular": "#1f6aa5",
@@ -458,11 +463,26 @@ app.layout = html.Div(
                         html.H1("Agricultural Input Ramp-up Dashboard"),
                         html.P(
                             "N-fertilizer (NH3) is the reference template. "
-                            "Set budgets for fertilizer (NH3, K, P), sulfuric acid, "
-                            "and pesticides, plus Startup % of Fully Scaled Production "
-                            "and fraction_functioning_after_disruption (defaults 0.5 / 0.4). "
-                            "Production chart shows new-factory output only. "
-                            "Shared $758B three-way budget split (relative to N) comes next."
+                            f"The shared {_fmt_money(REFERENCE_ANNUAL_BUDGET_USD)}/yr "
+                            "construction pot is split by equal-pace weights "
+                            "(CAPEX $/tpa × current t/yr) across fertilizer, H2SO4, "
+                            "and pesticides. Defaults below are that allocation; "
+                            "override any budget as needed. "
+                            "Startup % / fraction_functioning defaults: 0.5 / 0.4. "
+                            "Production chart shows new-factory output only."
+                        ),
+                        html.P(
+                            (
+                                "Equal-pace category totals: "
+                                f"fertilizer {_fmt_money(_CATEGORY_TOTALS['fertilizer'])} "
+                                f"({100 * _CATEGORY_TOTALS['fertilizer'] / REFERENCE_ANNUAL_BUDGET_USD:.1f}%), "
+                                f"H2SO4 {_fmt_money(_CATEGORY_TOTALS['h2so4'])} "
+                                f"({100 * _CATEGORY_TOTALS['h2so4'] / REFERENCE_ANNUAL_BUDGET_USD:.1f}%), "
+                                f"pesticides {_fmt_money(_CATEGORY_TOTALS['pesticides'])} "
+                                f"({100 * _CATEGORY_TOTALS['pesticides'] / REFERENCE_ANNUAL_BUDGET_USD:.1f}%)."
+                            ),
+                            className="hint",
+                            style={"marginTop": "8px"},
                         ),
                     ],
                     className="hero",
@@ -606,6 +626,53 @@ app.layout = html.Div(
                             className="actions",
                         ),
                         html.Div(id="status", className="status"),
+                        html.Details(
+                            [
+                                html.Summary(
+                                    f"Equal-pace $758B allocation detail "
+                                    f"(sum = {_fmt_money(REFERENCE_ANNUAL_BUDGET_USD)})"
+                                ),
+                                dash_table.DataTable(
+                                    columns=[
+                                        {"name": "Category", "id": "Category"},
+                                        {"name": "Commodity", "id": "Commodity"},
+                                        {
+                                            "name": "Share %",
+                                            "id": "SharePct",
+                                            "type": "numeric",
+                                            "format": {"specifier": ".2f"},
+                                        },
+                                        {
+                                            "name": "Budget USD/yr",
+                                            "id": "BudgetUSD",
+                                            "type": "numeric",
+                                            "format": {"specifier": ",.0f"},
+                                        },
+                                    ],
+                                    data=[
+                                        {
+                                            "Category": row["Category"],
+                                            "Commodity": row["Commodity"],
+                                            "SharePct": 100.0 * float(row["Share"]),
+                                            "BudgetUSD": float(row["Budget USD/yr"]),
+                                        }
+                                        for _, row in _ALLOCATION_DF.iterrows()
+                                    ],
+                                    style_table={"overflowX": "auto", "marginTop": "8px"},
+                                    style_cell={
+                                        "fontFamily": "IBM Plex Sans, sans-serif",
+                                        "fontSize": 13,
+                                        "padding": "6px 10px",
+                                        "textAlign": "left",
+                                    },
+                                    style_header={
+                                        "fontWeight": "600",
+                                        "backgroundColor": "#ece7de",
+                                    },
+                                ),
+                            ],
+                            style={"marginTop": "14px"},
+                        ),
                     ],
                     className="controls",
                 ),

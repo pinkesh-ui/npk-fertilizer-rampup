@@ -22,6 +22,10 @@ Workbook sources:
 Shared scenario inputs (from N template; applied to all commodities):
   - Startup % of Fully Scaled Production (default 0.5)
   - fraction_functioning_after_disruption (default 0.4)
+
+Shared annual construction pot:
+  - REFERENCE_ANNUAL_BUDGET_USD ($758B) is split across all commodities so they
+    recover current capacity at the same pace: B_i ∝ (CAPEX $/tpa) × (current t/yr).
 """
 
 from __future__ import annotations
@@ -237,90 +241,6 @@ def compute_fungicide_capex() -> CapexResult:
     return _pesticide_capex(1000.0, 19.42e6, 400.0)
 
 
-# Placeholder budgets until shared $758B fertilizer/H2SO4/pesticide allocator.
-# These are editable in the dashboard; values are temporary equal-pace drafts.
-_PLACEHOLDER_H2SO4_BUDGET = 2.1e9
-_PLACEHOLDER_HERBICIDE_BUDGET = 11.9e9
-_PLACEHOLDER_INSECTICIDE_BUDGET = 2.7e9
-_PLACEHOLDER_FUNGICIDE_BUDGET = 10.8e9
-
-COMMODITIES: list[CommodityConfig] = [
-    CommodityConfig(
-        key="nh3",
-        label="NH3 (Ammonia / N)",
-        product_short="NH3",
-        current_mt_per_year=240.0,
-        default_annual_budget_usd=REFERENCE_ANNUAL_BUDGET_USD,
-        production_chart_title="NH3/YEAR PRODUCTION RAMP-UP",
-        multiple_chart_title="MULTIPLE OF CURRENT NH3 PRODUCTION RAMP-UP",
-        multiple_y_label="Multiple of current NH3 production",
-    ),
-    CommodityConfig(
-        key="potassium",
-        label="Potassium Fertilizer (K / Potash / MOP)",
-        product_short="K",
-        current_mt_per_year=41.6,
-        default_annual_budget_usd=REFERENCE_ANNUAL_BUDGET_USD * 0.4,
-        production_chart_title="K FERTILIZER/YEAR PRODUCTION RAMP-UP",
-        multiple_chart_title="MULTIPLE OF CURRENT POTASH PRODUCTION RAMP-UP",
-        multiple_y_label="Multiple of current potash production",
-    ),
-    CommodityConfig(
-        key="phosphate",
-        label="Phosphate Fertilizer (P / TSP / MAP+DAP)",
-        product_short="P",
-        current_mt_per_year=47.8,
-        default_annual_budget_usd=REFERENCE_ANNUAL_BUDGET_USD * 0.4,
-        production_chart_title="MAP+DAP/YEAR PRODUCTION RAMP-UP",
-        multiple_chart_title="MULTIPLE OF CURRENT MAP+DAP PRODUCTION RAMP-UP",
-        multiple_y_label="Multiple of current MAP+DAP production",
-    ),
-    CommodityConfig(
-        key="h2so4",
-        label="Sulfuric Acid (H2SO4)",
-        product_short="H2SO4",
-        current_mt_per_year=150.0,
-        default_annual_budget_usd=_PLACEHOLDER_H2SO4_BUDGET,
-        production_chart_title="H2SO4/YEAR PRODUCTION RAMP-UP",
-        multiple_chart_title="MULTIPLE OF CURRENT H2SO4 PRODUCTION RAMP-UP",
-        multiple_y_label="Multiple of current H2SO4 production",
-        target_plant_size_tpd=2000.0,
-    ),
-    CommodityConfig(
-        key="herbicide",
-        label="Herbicides",
-        product_short="Herb",
-        current_mt_per_year=1.9023,
-        default_annual_budget_usd=_PLACEHOLDER_HERBICIDE_BUDGET,
-        production_chart_title="HERBICIDE/YEAR PRODUCTION RAMP-UP",
-        multiple_chart_title="MULTIPLE OF CURRENT HERBICIDE PRODUCTION RAMP-UP",
-        multiple_y_label="Multiple of current herbicide production",
-        target_plant_size_tpd=1000.0,
-    ),
-    CommodityConfig(
-        key="insecticide",
-        label="Insecticides",
-        product_short="Ins",
-        current_mt_per_year=0.8206,
-        default_annual_budget_usd=_PLACEHOLDER_INSECTICIDE_BUDGET,
-        production_chart_title="INSECTICIDE/YEAR PRODUCTION RAMP-UP",
-        multiple_chart_title="MULTIPLE OF CURRENT INSECTICIDE PRODUCTION RAMP-UP",
-        multiple_y_label="Multiple of current insecticide production",
-        target_plant_size_tpd=400.0,
-    ),
-    CommodityConfig(
-        key="fungicide",
-        label="Fungicides & bactericides",
-        product_short="Fun",
-        current_mt_per_year=0.8206,
-        default_annual_budget_usd=_PLACEHOLDER_FUNGICIDE_BUDGET,
-        production_chart_title="FUNGICIDE/YEAR PRODUCTION RAMP-UP",
-        multiple_chart_title="MULTIPLE OF CURRENT FUNGICIDE PRODUCTION RAMP-UP",
-        multiple_y_label="Multiple of current fungicide production",
-        target_plant_size_tpd=400.0,
-    ),
-]
-
 CAPEX_FUNCS = {
     "nh3": compute_nh3_capex,
     "potassium": compute_potassium_capex,
@@ -330,6 +250,189 @@ CAPEX_FUNCS = {
     "insecticide": compute_insecticide_capex,
     "fungicide": compute_fungicide_capex,
 }
+
+# Category grouping for the shared $758B pot (N template as reference scale).
+FERTILIZER_KEYS = ("nh3", "potassium", "phosphate")
+PESTICIDE_KEYS = ("herbicide", "insecticide", "fungicide")
+CATEGORY_KEYS = {
+    "fertilizer": FERTILIZER_KEYS,
+    "h2so4": ("h2so4",),
+    "pesticides": PESTICIDE_KEYS,
+}
+
+
+def _commodity_specs() -> list[dict]:
+    """Commodity metadata before budget allocation."""
+    return [
+        {
+            "key": "nh3",
+            "label": "NH3 (Ammonia / N)",
+            "product_short": "NH3",
+            "current_mt_per_year": 240.0,
+            "production_chart_title": "NH3/YEAR PRODUCTION RAMP-UP",
+            "multiple_chart_title": "MULTIPLE OF CURRENT NH3 PRODUCTION RAMP-UP",
+            "multiple_y_label": "Multiple of current NH3 production",
+            "target_plant_size_tpd": TARGET_PLANT_SIZE_TPD,
+        },
+        {
+            "key": "potassium",
+            "label": "Potassium Fertilizer (K / Potash / MOP)",
+            "product_short": "K",
+            "current_mt_per_year": 41.6,
+            "production_chart_title": "K FERTILIZER/YEAR PRODUCTION RAMP-UP",
+            "multiple_chart_title": "MULTIPLE OF CURRENT POTASH PRODUCTION RAMP-UP",
+            "multiple_y_label": "Multiple of current potash production",
+            "target_plant_size_tpd": TARGET_PLANT_SIZE_TPD,
+        },
+        {
+            "key": "phosphate",
+            "label": "Phosphate Fertilizer (P / TSP / MAP+DAP)",
+            "product_short": "P",
+            "current_mt_per_year": 47.8,
+            "production_chart_title": "MAP+DAP/YEAR PRODUCTION RAMP-UP",
+            "multiple_chart_title": "MULTIPLE OF CURRENT MAP+DAP PRODUCTION RAMP-UP",
+            "multiple_y_label": "Multiple of current MAP+DAP production",
+            "target_plant_size_tpd": TARGET_PLANT_SIZE_TPD,
+        },
+        {
+            "key": "h2so4",
+            "label": "Sulfuric Acid (H2SO4)",
+            "product_short": "H2SO4",
+            "current_mt_per_year": 150.0,
+            "production_chart_title": "H2SO4/YEAR PRODUCTION RAMP-UP",
+            "multiple_chart_title": "MULTIPLE OF CURRENT H2SO4 PRODUCTION RAMP-UP",
+            "multiple_y_label": "Multiple of current H2SO4 production",
+            "target_plant_size_tpd": 2000.0,
+        },
+        {
+            "key": "herbicide",
+            "label": "Herbicides",
+            "product_short": "Herb",
+            "current_mt_per_year": 1.9023,
+            "production_chart_title": "HERBICIDE/YEAR PRODUCTION RAMP-UP",
+            "multiple_chart_title": "MULTIPLE OF CURRENT HERBICIDE PRODUCTION RAMP-UP",
+            "multiple_y_label": "Multiple of current herbicide production",
+            "target_plant_size_tpd": 1000.0,
+        },
+        {
+            "key": "insecticide",
+            "label": "Insecticides",
+            "product_short": "Ins",
+            "current_mt_per_year": 0.8206,
+            "production_chart_title": "INSECTICIDE/YEAR PRODUCTION RAMP-UP",
+            "multiple_chart_title": "MULTIPLE OF CURRENT INSECTICIDE PRODUCTION RAMP-UP",
+            "multiple_y_label": "Multiple of current insecticide production",
+            "target_plant_size_tpd": 400.0,
+        },
+        {
+            "key": "fungicide",
+            "label": "Fungicides & bactericides",
+            "product_short": "Fun",
+            "current_mt_per_year": 0.8206,
+            "production_chart_title": "FUNGICIDE/YEAR PRODUCTION RAMP-UP",
+            "multiple_chart_title": "MULTIPLE OF CURRENT FUNGICIDE PRODUCTION RAMP-UP",
+            "multiple_y_label": "Multiple of current fungicide production",
+            "target_plant_size_tpd": 400.0,
+        },
+    ]
+
+
+def allocate_equal_pace_budgets(
+    total_budget_usd: float = REFERENCE_ANNUAL_BUDGET_USD,
+) -> dict[str, float]:
+    """
+    Split a shared construction budget so commodities recover current capacity
+    at the same pace (same multiple of their own current output).
+
+    Weight for commodity i:
+        w_i = (CAPEX $/tpa) × (current production t/yr)
+    Budget:
+        B_i = total_budget × w_i / sum(w)
+
+    N-fertilizer (NH3) is the reference template for ramp-up logic; the $758B
+    total is the shared world construction pot scaled to that N reference.
+    """
+    if total_budget_usd <= 0:
+        raise ValueError("total_budget_usd must be positive")
+
+    weights: dict[str, float] = {}
+    for spec in _commodity_specs():
+        key = spec["key"]
+        capex = CAPEX_FUNCS[key]()
+        current_tpy = spec["current_mt_per_year"] * 1_000_000.0
+        weights[key] = capex.capital_efficiency_usd_per_tpa * current_tpy
+
+    total_w = sum(weights.values())
+    if total_w <= 0:
+        raise ValueError("allocation weights must be positive")
+    return {k: total_budget_usd * (w / total_w) for k, w in weights.items()}
+
+
+def allocation_summary_table(
+    total_budget_usd: float = REFERENCE_ANNUAL_BUDGET_USD,
+) -> pd.DataFrame:
+    """Human-readable equal-pace allocation table (commodity + category totals)."""
+    budgets = allocate_equal_pace_budgets(total_budget_usd)
+    rows: list[dict] = []
+    for spec in _commodity_specs():
+        key = spec["key"]
+        capex = CAPEX_FUNCS[key]()
+        current_tpy = spec["current_mt_per_year"] * 1_000_000.0
+        weight = capex.capital_efficiency_usd_per_tpa * current_tpy
+        if key in FERTILIZER_KEYS:
+            category = "Fertilizer"
+        elif key == "h2so4":
+            category = "H2SO4"
+        else:
+            category = "Pesticides"
+        rows.append(
+            {
+                "Category": category,
+                "Commodity": spec["label"],
+                "Key": key,
+                "Current Mt/yr": spec["current_mt_per_year"],
+                "CAPEX $/tpa": capex.capital_efficiency_usd_per_tpa,
+                "Weight (= $/tpa × t/yr)": weight,
+                "Share": budgets[key] / total_budget_usd,
+                "Budget USD/yr": budgets[key],
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def category_budget_totals(
+    total_budget_usd: float = REFERENCE_ANNUAL_BUDGET_USD,
+) -> dict[str, float]:
+    """Sum allocated budgets into fertilizer / H2SO4 / pesticides."""
+    budgets = allocate_equal_pace_budgets(total_budget_usd)
+    return {
+        "fertilizer": sum(budgets[k] for k in FERTILIZER_KEYS),
+        "h2so4": budgets["h2so4"],
+        "pesticides": sum(budgets[k] for k in PESTICIDE_KEYS),
+    }
+
+
+def _build_commodities(
+    total_budget_usd: float = REFERENCE_ANNUAL_BUDGET_USD,
+) -> list[CommodityConfig]:
+    budgets = allocate_equal_pace_budgets(total_budget_usd)
+    return [
+        CommodityConfig(
+            key=spec["key"],
+            label=spec["label"],
+            product_short=spec["product_short"],
+            current_mt_per_year=spec["current_mt_per_year"],
+            default_annual_budget_usd=budgets[spec["key"]],
+            production_chart_title=spec["production_chart_title"],
+            multiple_chart_title=spec["multiple_chart_title"],
+            multiple_y_label=spec["multiple_y_label"],
+            target_plant_size_tpd=spec["target_plant_size_tpd"],
+        )
+        for spec in _commodity_specs()
+    ]
+
+
+COMMODITIES: list[CommodityConfig] = _build_commodities()
 
 
 def weeks_to_build_from_corrected_capex(corrected_capex: float) -> float:
