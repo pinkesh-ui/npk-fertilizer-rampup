@@ -1,11 +1,19 @@
-"""Basic smoke tests for the NPK ramp-up model."""
+"""Basic smoke tests for the agricultural input ramp-up model."""
 
 from agricultural_input_rampup import COMMODITIES, simulate_commodity
 
 
 def test_commodities_present():
     keys = {c.key for c in COMMODITIES}
-    assert keys == {"nh3", "potassium", "phosphate"}
+    assert keys == {
+        "nh3",
+        "potassium",
+        "phosphate",
+        "h2so4",
+        "herbicide",
+        "insecticide",
+        "fungicide",
+    }
 
 
 def test_simulate_nh3_default_budget():
@@ -68,3 +76,16 @@ def test_excel_nh3_plants_per_year_at_half_fraction():
     assert result["regular"].startup_production_tpw == (
         result["regular"].scaled_production_tpw * 0.5
     )
+
+
+def test_h2so4_and_pesticides_use_shared_fraction_defaults():
+    for key in ("h2so4", "herbicide", "insecticide", "fungicide"):
+        commodity = next(c for c in COMMODITIES if c.key == key)
+        result = simulate_commodity(commodity, commodity.default_annual_budget_usd)
+        assert result["startup_pct_of_full"] == 0.5
+        assert result["fraction_functioning"] == 0.4
+        first = result["weekly"].iloc[0]
+        assert first["Regular Multiple of Current Production"] == 0.4
+        assert first["Regular new megatonnes/year"] == 0.0
+        assert result["regular"].weeks_to_build > 0
+        assert result["fast"].weeks_to_build < result["regular"].weeks_to_build

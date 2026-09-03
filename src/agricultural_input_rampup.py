@@ -1,14 +1,20 @@
 """
-Agricultural fertilizer construction ramp-up model (N / P / K).
+Agricultural input construction ramp-up model.
 
-Reproduces CAPEX + Ramp-up calculations from:
-  - ALLFED N Fertiliser Scale-Up.xlsx                         → NH3 / N
-  - potassium_fertilizer_ramp_up_speed_with_refs (1).xlsx     → Potash / K
-  - phosphate_fertilizer_ramp_up_speed_with_refs_fixed_...xlsx → Phosphate / P
+Commodities:
+  - Fertilizer: NH3 / N, potassium (K), phosphate (P)
+  - Sulfuric acid (H2SO4)
+  - Pesticides: herbicides, insecticides, fungicides
 
-Two separable scenario inputs (from ALLFED N Fertiliser Scale-Up):
-  - Startup % of Fully Scaled Production (commissioning break-in)
-  - fraction_functioning_after_disruption (plants surviving disruption)
+Workbook sources:
+  - ALLFED N Fertiliser Scale-Up.xlsx
+  - potassium / phosphate fertilizer ramp-up workbooks
+  - H2SO4_ramp_up_UNIDO_based_corrected.xlsx
+  - pesticide_scale_up_template_logic_with_graphs.xlsx
+
+Shared scenario inputs (same for every commodity):
+  - Startup % of Fully Scaled Production (default 0.5)
+  - fraction_functioning_after_disruption (default 0.4)
 """
 
 from __future__ import annotations
@@ -53,6 +59,7 @@ class CommodityConfig:
     production_chart_title: str
     multiple_chart_title: str
     multiple_y_label: str
+    target_plant_size_tpd: float = TARGET_PLANT_SIZE_TPD
 
 
 @dataclass
@@ -157,6 +164,75 @@ def compute_phosphate_capex() -> CapexResult:
     )
 
 
+def compute_h2so4_capex() -> CapexResult:
+    """From H2SO4_ramp_up_UNIDO_based_corrected.xlsx CAPEX Calcs!B19."""
+    ref_capacity_tpd = 30.0
+    ref_capex_usd = 216_967.0  # $1988 basis in sheet, used as given for B19
+    target_tpd = 2000.0
+    cost_exponent = 0.65
+    scale = target_tpd / ref_capacity_tpd
+    regular = ref_capex_usd * (scale**cost_exponent)
+    fast = FAST_CONSTRUCTION_COST_FACTOR * regular
+    return CapexResult(
+        regular_capex_usd=regular,
+        fast_capex_usd=fast,
+        capital_efficiency_usd_per_tpa=regular / target_tpd / 365.0,
+        notes={
+            "ref_capacity_tpd": ref_capacity_tpd,
+            "ref_capex_usd": ref_capex_usd,
+            "target_tpd": target_tpd,
+            "cost_capacity_exponent": cost_exponent,
+            "plant_scale_factor": scale,
+        },
+    )
+
+
+def _pesticide_capex(
+    ref_capacity_tpy: float,
+    ref_capex_usd: float,
+    target_tpd: float,
+) -> CapexResult:
+    """Pesticide CAPEX: ref CAPEX × (target_tpy / ref_tpy)^0.7."""
+    target_tpy = target_tpd * 365.0
+    scale = target_tpy / ref_capacity_tpy
+    regular = ref_capex_usd * (scale**COST_CAPACITY_EXPONENT)
+    fast = FAST_CONSTRUCTION_COST_FACTOR * regular
+    return CapexResult(
+        regular_capex_usd=regular,
+        fast_capex_usd=fast,
+        capital_efficiency_usd_per_tpa=regular / target_tpy,
+        notes={
+            "ref_capacity_tpy": ref_capacity_tpy,
+            "ref_capex_usd": ref_capex_usd,
+            "target_tpd": target_tpd,
+            "target_tpy": target_tpy,
+            "plant_scale_factor": scale,
+        },
+    )
+
+
+def compute_herbicide_capex() -> CapexResult:
+    """From pesticide workbook CAPEX Calcs!F4."""
+    return _pesticide_capex(500.0, 7.5e6, 1000.0)
+
+
+def compute_insecticide_capex() -> CapexResult:
+    """From pesticide workbook CAPEX Calcs!F5."""
+    return _pesticide_capex(2000.0, 7.82e6, 400.0)
+
+
+def compute_fungicide_capex() -> CapexResult:
+    """From pesticide workbook CAPEX Calcs!F6."""
+    return _pesticide_capex(1000.0, 19.42e6, 400.0)
+
+
+# Placeholder budgets until shared $758B fertilizer/H2SO4/pesticide allocator.
+# These are editable in the dashboard; values are temporary equal-pace drafts.
+_PLACEHOLDER_H2SO4_BUDGET = 2.1e9
+_PLACEHOLDER_HERBICIDE_BUDGET = 11.9e9
+_PLACEHOLDER_INSECTICIDE_BUDGET = 2.7e9
+_PLACEHOLDER_FUNGICIDE_BUDGET = 10.8e9
+
 COMMODITIES: list[CommodityConfig] = [
     CommodityConfig(
         key="nh3",
@@ -188,12 +264,60 @@ COMMODITIES: list[CommodityConfig] = [
         multiple_chart_title="MULTIPLE OF CURRENT MAP+DAP PRODUCTION RAMP-UP",
         multiple_y_label="Multiple of current MAP+DAP production",
     ),
+    CommodityConfig(
+        key="h2so4",
+        label="Sulfuric Acid (H2SO4)",
+        product_short="H2SO4",
+        current_mt_per_year=150.0,
+        default_annual_budget_usd=_PLACEHOLDER_H2SO4_BUDGET,
+        production_chart_title="H2SO4/YEAR PRODUCTION RAMP-UP",
+        multiple_chart_title="MULTIPLE OF CURRENT H2SO4 PRODUCTION RAMP-UP",
+        multiple_y_label="Multiple of current H2SO4 production",
+        target_plant_size_tpd=2000.0,
+    ),
+    CommodityConfig(
+        key="herbicide",
+        label="Herbicides",
+        product_short="Herb",
+        current_mt_per_year=1.9023,
+        default_annual_budget_usd=_PLACEHOLDER_HERBICIDE_BUDGET,
+        production_chart_title="HERBICIDE/YEAR PRODUCTION RAMP-UP",
+        multiple_chart_title="MULTIPLE OF CURRENT HERBICIDE PRODUCTION RAMP-UP",
+        multiple_y_label="Multiple of current herbicide production",
+        target_plant_size_tpd=1000.0,
+    ),
+    CommodityConfig(
+        key="insecticide",
+        label="Insecticides",
+        product_short="Ins",
+        current_mt_per_year=0.8206,
+        default_annual_budget_usd=_PLACEHOLDER_INSECTICIDE_BUDGET,
+        production_chart_title="INSECTICIDE/YEAR PRODUCTION RAMP-UP",
+        multiple_chart_title="MULTIPLE OF CURRENT INSECTICIDE PRODUCTION RAMP-UP",
+        multiple_y_label="Multiple of current insecticide production",
+        target_plant_size_tpd=400.0,
+    ),
+    CommodityConfig(
+        key="fungicide",
+        label="Fungicides & bactericides",
+        product_short="Fun",
+        current_mt_per_year=0.8206,
+        default_annual_budget_usd=_PLACEHOLDER_FUNGICIDE_BUDGET,
+        production_chart_title="FUNGICIDE/YEAR PRODUCTION RAMP-UP",
+        multiple_chart_title="MULTIPLE OF CURRENT FUNGICIDE PRODUCTION RAMP-UP",
+        multiple_y_label="Multiple of current fungicide production",
+        target_plant_size_tpd=400.0,
+    ),
 ]
 
 CAPEX_FUNCS = {
     "nh3": compute_nh3_capex,
     "potassium": compute_potassium_capex,
     "phosphate": compute_phosphate_capex,
+    "h2so4": compute_h2so4_capex,
+    "herbicide": compute_herbicide_capex,
+    "insecticide": compute_insecticide_capex,
+    "fungicide": compute_fungicide_capex,
 }
 
 
@@ -209,6 +333,7 @@ def build_scenario(
     weeks_to_build: float,
     startup_pct_of_full: float = DEFAULT_STARTUP_PCT_OF_FULL,
     fraction_functioning: float = DEFAULT_FRACTION_FUNCTIONING,
+    target_plant_size_tpd: float = TARGET_PLANT_SIZE_TPD,
 ) -> ScenarioParams:
     """
     Build scenario parameters matching ALLFED N Fertiliser Scale-Up.xlsx:
@@ -222,7 +347,7 @@ def build_scenario(
     plants_per_wave = plants_per_year / waves_per_year
     plants_per_week = plants_per_year / 52.0
 
-    scaled_production_tpw = TARGET_PLANT_SIZE_TPD * 7.0
+    scaled_production_tpw = target_plant_size_tpd * 7.0
     startup_production_tpw = scaled_production_tpw * startup_pct_of_full
 
     return ScenarioParams(
@@ -602,6 +727,7 @@ def simulate_commodity(
         regular_weeks,
         startup_pct_of_full=startup_pct_of_full,
         fraction_functioning=fraction_functioning,
+        target_plant_size_tpd=commodity.target_plant_size_tpd,
     )
     fast = build_scenario(
         "Fast Construction",
@@ -610,10 +736,11 @@ def simulate_commodity(
         fast_weeks,
         startup_pct_of_full=startup_pct_of_full,
         fraction_functioning=fraction_functioning,
+        target_plant_size_tpd=commodity.target_plant_size_tpd,
     )
 
-    sanity_plants = (
-        commodity.current_mt_per_year * 1_000_000.0 / (TARGET_PLANT_SIZE_TPD * 365.25)
+    sanity_plants = commodity.current_mt_per_year * 1_000_000.0 / (
+        commodity.target_plant_size_tpd * 365.25
     )
 
     summary = pd.DataFrame(

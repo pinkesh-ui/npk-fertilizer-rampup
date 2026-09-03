@@ -299,7 +299,9 @@ def budget_input(commodity_key: str, label: str, default: float) -> html.Div:
 
 
 app = Dash(
-    __name__, external_stylesheets=EXTERNAL_STYLES, title="NPK Fertilizer Ramp-up"
+    __name__,
+    external_stylesheets=EXTERNAL_STYLES,
+    title="Agricultural Input Ramp-up",
 )
 server = app.server
 
@@ -343,7 +345,7 @@ app.index_string = """
             }
             .budget-row {
                 display: grid;
-                grid-template-columns: repeat(3, minmax(0, 1fr));
+                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
                 gap: 16px;
             }
             .budget-field label {
@@ -453,11 +455,13 @@ app.layout = html.Div(
             [
                 html.Div(
                     [
-                        html.H1("Fertilizer Ramp-up Dashboard"),
+                        html.H1("Agricultural Input Ramp-up Dashboard"),
                         html.P(
-                            "Set budgets for NH3, potassium, and phosphate, plus "
-                            "Startup % of Fully Scaled Production and "
-                            "fraction_functioning_after_disruption. Production chart shows new-factory output only."
+                            "Set budgets for fertilizer (NH3, K, P), sulfuric acid, "
+                            "and pesticides, plus Startup % of Fully Scaled Production "
+                            "and fraction_functioning_after_disruption (defaults 0.5 / 0.4). "
+                            "Production chart shows new-factory output only. "
+                            "Shared $758B three-way budget split comes next."
                         ),
                     ],
                     className="hero",
@@ -487,6 +491,38 @@ app.layout = html.Div(
                                 ),
                             ],
                             className="budget-row",
+                        ),
+                        html.Div(
+                            [
+                                budget_input(
+                                    "h2so4",
+                                    "Sulfuric acid (H2SO4) budget (USD/yr)",
+                                    COMMODITY_BY_KEY["h2so4"].default_annual_budget_usd,
+                                ),
+                                budget_input(
+                                    "herbicide",
+                                    "Herbicide budget (USD/yr)",
+                                    COMMODITY_BY_KEY[
+                                        "herbicide"
+                                    ].default_annual_budget_usd,
+                                ),
+                                budget_input(
+                                    "insecticide",
+                                    "Insecticide budget (USD/yr)",
+                                    COMMODITY_BY_KEY[
+                                        "insecticide"
+                                    ].default_annual_budget_usd,
+                                ),
+                                budget_input(
+                                    "fungicide",
+                                    "Fungicide budget (USD/yr)",
+                                    COMMODITY_BY_KEY[
+                                        "fungicide"
+                                    ].default_annual_budget_usd,
+                                ),
+                            ],
+                            className="budget-row",
+                            style={"marginTop": "16px"},
                         ),
                         html.Div(
                             [
@@ -630,6 +666,10 @@ app.layout = html.Div(
     State("budget-nh3", "value"),
     State("budget-potassium", "value"),
     State("budget-phosphate", "value"),
+    State("budget-h2so4", "value"),
+    State("budget-herbicide", "value"),
+    State("budget-insecticide", "value"),
+    State("budget-fungicide", "value"),
     State("startup-pct", "value"),
     State("fraction-functioning", "value"),
 )
@@ -639,6 +679,10 @@ def update_dashboard(
     budget_nh3,
     budget_k,
     budget_p,
+    budget_h2so4,
+    budget_herbicide,
+    budget_insecticide,
+    budget_fungicide,
     startup_pct,
     fraction_functioning,
 ):
@@ -646,6 +690,10 @@ def update_dashboard(
         "nh3": budget_nh3,
         "potassium": budget_k,
         "phosphate": budget_p,
+        "h2so4": budget_h2so4,
+        "herbicide": budget_herbicide,
+        "insecticide": budget_insecticide,
+        "fungicide": budget_fungicide,
     }
     selected = commodity_key or "nh3"
     budget = budgets.get(selected)
@@ -713,7 +761,7 @@ def main() -> None:
     host = os.environ.get("DASH_HOST", "127.0.0.1")
     port = int(os.environ.get("PORT", os.environ.get("DASH_PORT", "8050")))
     print("=" * 60)
-    print("NPK FERTILIZER RAMP-UP DASHBOARD")
+    print("AGRICULTURAL INPUT RAMP-UP DASHBOARD")
     print("=" * 60)
     print(f"Starting server on http://{host}:{port}")
     print("Open that URL in your browser. Press Ctrl+C to stop.")
