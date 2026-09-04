@@ -43,11 +43,13 @@ COLORS = {
     "fast": "#ff9f6b",
     "bg": "#0b1220",
     "panel": "#141c2b",
+    "plot": "#101826",
     "ink": "#e8eef8",
     "muted": "#9aa8bc",
     "accent": "#3dd6c6",
     "border": "#2a364a",
-    "grid": "#243044",
+    "grid": "#2c3a52",
+    "grid_minor": "#1a2436",
     "input": "#0f1724",
 }
 
@@ -93,38 +95,105 @@ def _billions_to_usd(billions: float) -> float:
     return float(billions) * 1e9
 
 
-def _chart_layout(**kwargs) -> dict:
+def _axis_style(x_max: float | None = None) -> tuple[dict, dict]:
+    """Shared dark-theme axes: yearly labels, soft major + minor grids."""
+    xaxis = dict(
+        title=dict(text="Years", standoff=12, font=dict(size=13, color=COLORS["muted"])),
+        range=[-0.25, (x_max if x_max is not None else 9.5) + 0.15],
+        tick0=0,
+        dtick=1,
+        tickangle=0,
+        tickfont=dict(size=12, color=COLORS["muted"]),
+        showgrid=True,
+        gridcolor=COLORS["grid"],
+        gridwidth=1,
+        minor=dict(
+            tickmode="auto",
+            dtick=0.5,
+            showgrid=True,
+            gridcolor=COLORS["grid_minor"],
+            gridwidth=0.6,
+        ),
+        zeroline=True,
+        zerolinecolor="#4a5d78",
+        zerolinewidth=1.2,
+        showline=True,
+        linecolor=COLORS["border"],
+        mirror=True,
+        ticks="outside",
+        tickcolor=COLORS["border"],
+        showspikes=True,
+        spikemode="across",
+        spikesnap="cursor",
+        spikethickness=1,
+        spikecolor="#5a6f8c",
+        spikedash="dot",
+    )
+    yaxis = dict(
+        title=dict(standoff=10, font=dict(size=13, color=COLORS["muted"])),
+        tickfont=dict(size=12, color=COLORS["muted"]),
+        showgrid=True,
+        gridcolor=COLORS["grid"],
+        gridwidth=1,
+        minor=dict(showgrid=True, gridcolor=COLORS["grid_minor"], gridwidth=0.6),
+        zeroline=True,
+        zerolinecolor="#4a5d78",
+        zerolinewidth=1.2,
+        showline=True,
+        linecolor=COLORS["border"],
+        mirror=True,
+        ticks="outside",
+        tickcolor=COLORS["border"],
+        tickformat=".2~s",
+        separatethousands=True,
+    )
+    return xaxis, yaxis
+
+
+def _chart_layout(x_max: float | None = None, **kwargs) -> dict:
+    xaxis, yaxis = _axis_style(x_max)
     base = dict(
         template="plotly_dark",
         paper_bgcolor=COLORS["panel"],
-        plot_bgcolor=COLORS["panel"],
-        font=dict(family="DM Sans, sans-serif", color=COLORS["ink"]),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
-        margin=dict(l=60, r=20, t=80, b=50),
-        height=440,
-        xaxis=dict(
-            dtick=0.25,
-            tickangle=-90,
-            showgrid=True,
-            gridcolor=COLORS["grid"],
-            zerolinecolor=COLORS["border"],
-            linecolor=COLORS["border"],
+        plot_bgcolor=COLORS["plot"],
+        font=dict(family="DM Sans, sans-serif", color=COLORS["ink"], size=13),
+        title=dict(font=dict(size=16, color=COLORS["ink"]), x=0.01, xanchor="left"),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.08,
+            x=0,
+            bgcolor="rgba(0,0,0,0)",
+            borderwidth=0,
+            font=dict(size=12, color=COLORS["muted"]),
         ),
-        yaxis=dict(
-            showgrid=True,
-            gridcolor=COLORS["grid"],
-            zerolinecolor=COLORS["border"],
-            linecolor=COLORS["border"],
-            tickformat=".2~s",
+        margin=dict(l=72, r=28, t=96, b=64),
+        height=480,
+        hovermode="x unified",
+        hoverlabel=dict(
+            bgcolor="#1a2436",
+            bordercolor=COLORS["border"],
+            font=dict(family="DM Sans, sans-serif", size=12, color=COLORS["ink"]),
         ),
+        xaxis=xaxis,
+        yaxis=yaxis,
     )
+    # Allow callers to deepen axis titles / ranges without wiping grid style.
+    if "xaxis" in kwargs:
+        merged_x = dict(xaxis)
+        merged_x.update(kwargs.pop("xaxis"))
+        kwargs["xaxis"] = merged_x
+    if "yaxis" in kwargs:
+        merged_y = dict(yaxis)
+        merged_y.update(kwargs.pop("yaxis"))
+        kwargs["yaxis"] = merged_y
     base.update(kwargs)
     return base
 
 
 def _empty_fig(title: str) -> go.Figure:
     fig = go.Figure()
-    fig.update_layout(**_chart_layout(title=title, height=420, margin=dict(l=50, r=20, t=60, b=50)))
+    fig.update_layout(**_chart_layout(title=title, height=420))
     return fig
 
 
@@ -132,6 +201,7 @@ def make_production_figure(result: dict[str, Any]) -> go.Figure:
     commodity = result["commodity"]
     weekly = result["weekly"]
     budget = result["budget"]
+    x_max = float(weekly["Years"].max())
     fig = go.Figure()
     fig.add_trace(
         go.Scatter(
@@ -139,7 +209,8 @@ def make_production_figure(result: dict[str, Any]) -> go.Figure:
             y=weekly["Regular new megatonnes/year"],
             mode="lines",
             name="Regular Construction",
-            line=dict(color=COLORS["regular"], width=2.5, shape="hv"),
+            line=dict(color=COLORS["regular"], width=2.8, shape="hv"),
+            hovertemplate="Regular: %{y:.1f} Mt/yr<extra></extra>",
         )
     )
     fig.add_trace(
@@ -148,7 +219,8 @@ def make_production_figure(result: dict[str, Any]) -> go.Figure:
             y=weekly["Fast new megatonnes/year"],
             mode="lines",
             name="Fast Construction",
-            line=dict(color=COLORS["fast"], width=2.5, shape="hv"),
+            line=dict(color=COLORS["fast"], width=2.8, shape="hv"),
+            hovertemplate="Fast: %{y:.1f} Mt/yr<extra></extra>",
         )
     )
     fig.add_trace(
@@ -156,8 +228,8 @@ def make_production_figure(result: dict[str, Any]) -> go.Figure:
             x=[-0.25, 0.0],
             y=[commodity.current_mt_per_year, commodity.current_mt_per_year],
             mode="lines",
-            name="Pre-disruption current production (100%)",
-            line=dict(color="#8899aa", width=2, dash="dot"),
+            name="Pre-disruption current (100%)",
+            line=dict(color="#a8b8c8", width=2, dash="dot"),
             hovertemplate=(
                 "Pre-disruption baseline: "
                 f"{commodity.current_mt_per_year:g} Mt/yr<extra></extra>"
@@ -166,20 +238,17 @@ def make_production_figure(result: dict[str, Any]) -> go.Figure:
     )
     fig.update_layout(
         **_chart_layout(
+            x_max=x_max,
             title=(
-                f"{commodity.production_chart_title} (New Factory Production)<br>"
-                f"<sup>Budget = {_fmt_money(budget)}/yr</sup>"
+                f"{commodity.production_chart_title} — new factory production"
+                f"<br><sup style='color:#9aa8bc'>Budget = {_fmt_money(budget)}/yr</sup>"
             ),
-            xaxis_title="Years",
-            yaxis_title="new megatonnes/year",
-            xaxis=dict(
-                range=[-0.25, float(weekly["Years"].max()) + 0.05],
-                dtick=0.25,
-                tickangle=-90,
-                showgrid=True,
-                gridcolor=COLORS["grid"],
-                zerolinecolor=COLORS["border"],
-                linecolor=COLORS["border"],
+            yaxis=dict(
+                title=dict(
+                    text="New megatonnes / year",
+                    standoff=10,
+                    font=dict(size=13, color=COLORS["muted"]),
+                )
             ),
         )
     )
@@ -202,6 +271,7 @@ def make_multiple_figure(result: dict[str, Any]) -> go.Figure:
     weekly = result["weekly"]
     budget = result["budget"]
     years = weekly["Years"]
+    x_max = float(years.max())
     reg_x, reg_y = _series_with_pre_disruption_multiple(
         years, weekly["Regular Multiple of Current Production"]
     )
@@ -215,7 +285,8 @@ def make_multiple_figure(result: dict[str, Any]) -> go.Figure:
             y=reg_y,
             mode="lines",
             name="Regular Construction",
-            line=dict(color=COLORS["regular"], width=2.5),
+            line=dict(color=COLORS["regular"], width=2.8),
+            hovertemplate="Regular: %{y:.2f}× current<extra></extra>",
         )
     )
     fig.add_trace(
@@ -224,25 +295,23 @@ def make_multiple_figure(result: dict[str, Any]) -> go.Figure:
             y=fast_y,
             mode="lines",
             name="Fast Construction",
-            line=dict(color=COLORS["fast"], width=2.5),
+            line=dict(color=COLORS["fast"], width=2.8),
+            hovertemplate="Fast: %{y:.2f}× current<extra></extra>",
         )
     )
     fig.update_layout(
         **_chart_layout(
+            x_max=x_max,
             title=(
-                f"{commodity.multiple_chart_title}<br>"
-                f"<sup>Budget = {_fmt_money(budget)}/yr</sup>"
+                f"{commodity.multiple_chart_title}"
+                f"<br><sup style='color:#9aa8bc'>Budget = {_fmt_money(budget)}/yr</sup>"
             ),
-            xaxis_title="Years",
-            yaxis_title=commodity.multiple_y_label,
-            xaxis=dict(
-                range=[-0.25, float(weekly["Years"].max()) + 0.05],
-                dtick=0.25,
-                tickangle=-90,
-                showgrid=True,
-                gridcolor=COLORS["grid"],
-                zerolinecolor=COLORS["border"],
-                linecolor=COLORS["border"],
+            yaxis=dict(
+                title=dict(
+                    text=commodity.multiple_y_label,
+                    standoff=10,
+                    font=dict(size=13, color=COLORS["muted"]),
+                )
             ),
         )
     )
