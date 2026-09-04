@@ -1,5 +1,5 @@
 """
-Interactive Plotly Dash dashboard for N / P / K fertilizer ramp-up.
+Interactive Plotly Dash dashboard for agricultural input ramp-up.
 
 Usage:
     python dashboard.py
@@ -37,23 +37,42 @@ COMMODITY_BY_KEY = {c.key: c for c in COMMODITIES}
 _ALLOCATION_DF = allocation_summary_table(REFERENCE_ANNUAL_BUDGET_USD)
 _CATEGORY_TOTALS = category_budget_totals(REFERENCE_ANNUAL_BUDGET_USD)
 
+# Dark theme palette (user-requested)
 COLORS = {
-    "regular": "#1f6aa5",
-    "fast": "#c45c26",
-    "bg": "#f7f4ef",
-    "panel": "#ffffff",
-    "ink": "#1c1b19",
-    "muted": "#5c574f",
-    "accent": "#2f5d50",
-    "border": "#d9d2c5",
+    "regular": "#5eb8ff",
+    "fast": "#ff9f6b",
+    "bg": "#0b1220",
+    "panel": "#141c2b",
+    "ink": "#e8eef8",
+    "muted": "#9aa8bc",
+    "accent": "#3dd6c6",
+    "border": "#2a364a",
+    "grid": "#243044",
+    "input": "#0f1724",
 }
 
 _FONT_HREF = (
     "https://fonts.googleapis.com/css2?"
-    "family=IBM+Plex+Sans:wght@400;500;600&"
-    "family=IBM+Plex+Serif:wght@600&display=swap"
+    "family=DM+Sans:wght@400;500;600;700&"
+    "family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap"
 )
 EXTERNAL_STYLES = [{"href": _FONT_HREF, "rel": "stylesheet"}]
+
+_TABLE_STYLE_CELL = {
+    "fontFamily": "DM Sans, sans-serif",
+    "fontSize": 13,
+    "padding": "8px 10px",
+    "textAlign": "left",
+    "backgroundColor": COLORS["panel"],
+    "color": COLORS["ink"],
+    "border": f"1px solid {COLORS['border']}",
+}
+_TABLE_STYLE_HEADER = {
+    "fontWeight": "600",
+    "backgroundColor": "#1a2436",
+    "color": COLORS["ink"],
+    "border": f"1px solid {COLORS['border']}",
+}
 
 
 def _fmt_money(value: float) -> str:
@@ -66,17 +85,46 @@ def _fmt_money(value: float) -> str:
     return f"${value:,.0f}"
 
 
-def _empty_fig(title: str) -> go.Figure:
-    fig = go.Figure()
-    fig.update_layout(
-        title=title,
-        template="plotly_white",
+def _usd_to_billions(usd: float) -> float:
+    return round(usd / 1e9, 2)
+
+
+def _billions_to_usd(billions: float) -> float:
+    return float(billions) * 1e9
+
+
+def _chart_layout(**kwargs) -> dict:
+    base = dict(
+        template="plotly_dark",
         paper_bgcolor=COLORS["panel"],
         plot_bgcolor=COLORS["panel"],
-        font=dict(family="IBM Plex Sans, sans-serif", color=COLORS["ink"]),
-        margin=dict(l=50, r=20, t=60, b=50),
-        height=420,
+        font=dict(family="DM Sans, sans-serif", color=COLORS["ink"]),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
+        margin=dict(l=60, r=20, t=80, b=50),
+        height=440,
+        xaxis=dict(
+            dtick=0.25,
+            tickangle=-90,
+            showgrid=True,
+            gridcolor=COLORS["grid"],
+            zerolinecolor=COLORS["border"],
+            linecolor=COLORS["border"],
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridcolor=COLORS["grid"],
+            zerolinecolor=COLORS["border"],
+            linecolor=COLORS["border"],
+            tickformat=".2~s",
+        ),
     )
+    base.update(kwargs)
+    return base
+
+
+def _empty_fig(title: str) -> go.Figure:
+    fig = go.Figure()
+    fig.update_layout(**_chart_layout(title=title, height=420, margin=dict(l=50, r=20, t=60, b=50)))
     return fig
 
 
@@ -109,7 +157,7 @@ def make_production_figure(result: dict[str, Any]) -> go.Figure:
             y=[commodity.current_mt_per_year, commodity.current_mt_per_year],
             mode="lines",
             name="Pre-disruption current production (100%)",
-            line=dict(color="#7f8c8d", width=2, dash="dot"),
+            line=dict(color="#8899aa", width=2, dash="dot"),
             hovertemplate=(
                 "Pre-disruption baseline: "
                 f"{commodity.current_mt_per_year:g} Mt/yr<extra></extra>"
@@ -117,27 +165,23 @@ def make_production_figure(result: dict[str, Any]) -> go.Figure:
         )
     )
     fig.update_layout(
-        title=(
-            f"{commodity.production_chart_title} (New Factory Production)<br>"
-            f"<sup>Budget = {_fmt_money(budget)}/yr</sup>"
-        ),
-        xaxis_title="Years",
-        yaxis_title="new megatonnes/year",
-        template="plotly_white",
-        paper_bgcolor=COLORS["panel"],
-        plot_bgcolor=COLORS["panel"],
-        font=dict(family="IBM Plex Sans, sans-serif", color=COLORS["ink"]),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
-        margin=dict(l=60, r=20, t=80, b=50),
-        height=440,
-        xaxis=dict(
-            range=[-0.25, float(weekly["Years"].max()) + 0.05],
-            dtick=0.25,
-            tickangle=-90,
-            showgrid=True,
-            gridcolor="#ece7de",
-        ),
-        yaxis=dict(showgrid=True, gridcolor="#ece7de", tickformat=".2~s"),
+        **_chart_layout(
+            title=(
+                f"{commodity.production_chart_title} (New Factory Production)<br>"
+                f"<sup>Budget = {_fmt_money(budget)}/yr</sup>"
+            ),
+            xaxis_title="Years",
+            yaxis_title="new megatonnes/year",
+            xaxis=dict(
+                range=[-0.25, float(weekly["Years"].max()) + 0.05],
+                dtick=0.25,
+                tickangle=-90,
+                showgrid=True,
+                gridcolor=COLORS["grid"],
+                zerolinecolor=COLORS["border"],
+                linecolor=COLORS["border"],
+            ),
+        )
     )
     return fig
 
@@ -148,7 +192,6 @@ def _series_with_pre_disruption_multiple(years, multiples):
     multiples = list(multiples)
     if not years:
         return [-0.25, 0.0], [1.0, 1.0]
-    # Hold at 1.0 until t=0, then drop to post-disruption multiple and continue.
     x = [-0.25, 0.0, 0.0] + years
     y = [1.0, 1.0, multiples[0]] + multiples
     return x, y
@@ -185,24 +228,23 @@ def make_multiple_figure(result: dict[str, Any]) -> go.Figure:
         )
     )
     fig.update_layout(
-        title=f"{commodity.multiple_chart_title}<br><sup>Budget = {_fmt_money(budget)}/yr</sup>",
-        xaxis_title="Years",
-        yaxis_title=commodity.multiple_y_label,
-        template="plotly_white",
-        paper_bgcolor=COLORS["panel"],
-        plot_bgcolor=COLORS["panel"],
-        font=dict(family="IBM Plex Sans, sans-serif", color=COLORS["ink"]),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
-        margin=dict(l=60, r=20, t=80, b=50),
-        height=440,
-        xaxis=dict(
-            range=[-0.25, float(weekly["Years"].max()) + 0.05],
-            dtick=0.25,
-            tickangle=-90,
-            showgrid=True,
-            gridcolor="#ece7de",
-        ),
-        yaxis=dict(showgrid=True, gridcolor="#ece7de", tickformat=".2~s"),
+        **_chart_layout(
+            title=(
+                f"{commodity.multiple_chart_title}<br>"
+                f"<sup>Budget = {_fmt_money(budget)}/yr</sup>"
+            ),
+            xaxis_title="Years",
+            yaxis_title=commodity.multiple_y_label,
+            xaxis=dict(
+                range=[-0.25, float(weekly["Years"].max()) + 0.05],
+                dtick=0.25,
+                tickangle=-90,
+                showgrid=True,
+                gridcolor=COLORS["grid"],
+                zerolinecolor=COLORS["border"],
+                linecolor=COLORS["border"],
+            ),
+        )
     )
     return fig
 
@@ -284,20 +326,26 @@ def summary_table_data(result: dict[str, Any]) -> list[dict]:
     return rows
 
 
-def budget_input(commodity_key: str, label: str, default: float) -> html.Div:
+def budget_input(commodity_key: str, label: str, default_usd: float) -> html.Div:
+    """Budget entry in billions of USD/yr (converted to USD in the callback)."""
+    default_b = _usd_to_billions(default_usd)
     return html.Div(
         [
             html.Label(label, htmlFor=f"budget-{commodity_key}"),
             dcc.Input(
                 id=f"budget-{commodity_key}",
                 type="number",
-                value=default,
-                min=1,
-                step=1e9,
+                value=default_b,
+                min=0.01,
+                step=0.1,
                 debounce=True,
                 className="budget-input",
+                placeholder="e.g. 555.41",
             ),
-            html.Div(f"Default {_fmt_money(default)}/yr", className="hint"),
+            html.Div(
+                f"Enter billion $/yr (default {default_b:g} → {_fmt_money(default_usd)}/yr)",
+                className="hint",
+            ),
         ],
         className="budget-field",
     )
@@ -319,34 +367,58 @@ app.index_string = """
         {%favicon%}
         {%css%}
         <style>
+            :root {
+                --bg: #0b1220;
+                --bg2: #101a2c;
+                --panel: #141c2b;
+                --ink: #e8eef8;
+                --muted: #9aa8bc;
+                --accent: #3dd6c6;
+                --accent2: #5eb8ff;
+                --border: #2a364a;
+                --input: #0f1724;
+                --danger: #ff8f8f;
+            }
             body {
                 margin: 0;
-                background: #f7f4ef;
-                color: #1c1b19;
-                font-family: "IBM Plex Sans", sans-serif;
+                min-height: 100vh;
+                color: var(--ink);
+                font-family: "DM Sans", sans-serif;
+                background:
+                    radial-gradient(1200px 600px at 10% -10%, rgba(61, 214, 198, 0.12), transparent 55%),
+                    radial-gradient(900px 500px at 95% 0%, rgba(94, 184, 255, 0.14), transparent 50%),
+                    linear-gradient(165deg, #0b1220 0%, #101a2c 45%, #0b1220 100%);
             }
             .page {
                 max-width: 1200px;
                 margin: 0 auto;
-                padding: 28px 20px 48px;
+                padding: 32px 20px 56px;
             }
             .hero h1 {
-                font-family: "IBM Plex Serif", serif;
-                font-size: 2rem;
-                margin: 0 0 8px;
-                color: #2f5d50;
+                font-family: "Fraunces", serif;
+                font-size: clamp(1.8rem, 3vw, 2.35rem);
+                font-weight: 700;
+                margin: 0 0 10px;
+                letter-spacing: -0.02em;
+                background: linear-gradient(120deg, #e8eef8 20%, #3dd6c6 70%, #5eb8ff 100%);
+                -webkit-background-clip: text;
+                background-clip: text;
+                color: transparent;
             }
             .hero p {
                 margin: 0;
-                color: #5c574f;
-                max-width: 52rem;
-                line-height: 1.45;
+                color: var(--muted);
+                max-width: 54rem;
+                line-height: 1.55;
             }
             .controls {
-                margin-top: 24px;
-                padding: 18px;
-                background: #ffffff;
-                border: 1px solid #d9d2c5;
+                margin-top: 28px;
+                padding: 22px;
+                background: rgba(20, 28, 43, 0.88);
+                border: 1px solid var(--border);
+                border-radius: 16px;
+                box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+                backdrop-filter: blur(8px);
             }
             .budget-row {
                 display: grid;
@@ -357,41 +429,68 @@ app.index_string = """
                 display: block;
                 font-weight: 600;
                 margin-bottom: 6px;
+                color: var(--ink);
+                font-size: 0.92rem;
             }
             .budget-input {
                 width: 100%;
                 box-sizing: border-box;
-                padding: 10px 12px;
-                border: 1px solid #d9d2c5;
-                border-radius: 0;
+                padding: 11px 12px;
+                border: 1px solid var(--border);
+                border-radius: 10px;
                 font-size: 1rem;
-                background: #fff;
+                color: var(--ink);
+                background: var(--input);
+                outline: none;
+                transition: border-color 0.15s ease, box-shadow 0.15s ease;
+            }
+            .budget-input:focus {
+                border-color: var(--accent);
+                box-shadow: 0 0 0 3px rgba(61, 214, 198, 0.18);
             }
             .hint {
-                margin-top: 4px;
+                margin-top: 5px;
                 font-size: 0.8rem;
-                color: #5c574f;
+                color: var(--muted);
+                line-height: 1.35;
             }
             .actions {
                 display: flex;
                 gap: 12px;
                 align-items: end;
-                margin-top: 16px;
+                margin-top: 18px;
                 flex-wrap: wrap;
             }
             .commodity-select {
-                min-width: 260px;
+                min-width: 280px;
+            }
+            .Select-control, .Select-menu-outer, .VirtualizedSelectOption,
+            .Select-placeholder, .Select--single > .Select-control .Select-value {
+                background: var(--input) !important;
+                color: var(--ink) !important;
+                border-color: var(--border) !important;
+            }
+            .Select-menu-outer {
+                border-radius: 10px !important;
+            }
+            #commodity-select .Select-control {
+                border-radius: 10px !important;
+                min-height: 42px;
             }
             .run-btn {
-                background: #2f5d50;
-                color: #fff;
+                background: linear-gradient(135deg, #2bb8a8, #3dd6c6 55%, #5eb8ff);
+                color: #061018;
                 border: none;
-                padding: 11px 18px;
+                border-radius: 10px;
+                padding: 12px 20px;
                 font-size: 1rem;
-                font-weight: 600;
+                font-weight: 700;
                 cursor: pointer;
+                box-shadow: 0 8px 22px rgba(61, 214, 198, 0.25);
             }
-            .run-btn:hover { background: #24483e; }
+            .run-btn:hover {
+                filter: brightness(1.06);
+            }
             .metrics {
                 margin-top: 18px;
                 display: grid;
@@ -399,18 +498,21 @@ app.index_string = """
                 gap: 10px;
             }
             .metric-card {
-                background: #ffffff;
-                border: 1px solid #d9d2c5;
-                padding: 12px;
+                background: rgba(20, 28, 43, 0.92);
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                padding: 14px;
             }
             .metric-label {
-                font-size: 0.78rem;
-                color: #5c574f;
-                margin-bottom: 4px;
+                font-size: 0.76rem;
+                color: var(--muted);
+                margin-bottom: 6px;
+                letter-spacing: 0.01em;
             }
             .metric-value {
                 font-size: 1.05rem;
-                font-weight: 600;
+                font-weight: 650;
+                color: var(--ink);
             }
             .charts {
                 margin-top: 18px;
@@ -419,24 +521,36 @@ app.index_string = """
                 gap: 16px;
             }
             .panel {
-                background: #ffffff;
-                border: 1px solid #d9d2c5;
-                padding: 8px;
+                background: rgba(20, 28, 43, 0.92);
+                border: 1px solid var(--border);
+                border-radius: 16px;
+                padding: 10px;
+                box-shadow: 0 14px 36px rgba(0, 0, 0, 0.22);
             }
             .table-wrap {
                 margin-top: 18px;
-                background: #ffffff;
-                border: 1px solid #d9d2c5;
-                padding: 12px;
+                background: rgba(20, 28, 43, 0.92);
+                border: 1px solid var(--border);
+                border-radius: 16px;
+                padding: 14px;
             }
             .table-wrap h3 {
                 margin: 4px 0 12px;
                 font-size: 1.05rem;
+                color: var(--ink);
             }
             .status {
-                margin-top: 10px;
-                color: #5c574f;
+                margin-top: 12px;
+                color: var(--muted);
                 font-size: 0.9rem;
+            }
+            details {
+                color: var(--muted);
+            }
+            details summary {
+                cursor: pointer;
+                color: var(--accent2);
+                font-weight: 600;
             }
             @media (max-width: 900px) {
                 .budget-row { grid-template-columns: 1fr; }
@@ -466,8 +580,7 @@ app.layout = html.Div(
                             f"The shared {_fmt_money(REFERENCE_ANNUAL_BUDGET_USD)}/yr "
                             "construction pot is split by equal-pace weights "
                             "(CAPEX $/tpa × current t/yr) across fertilizer, H2SO4, "
-                            "and pesticides. Defaults below are that allocation; "
-                            "override any budget as needed. "
+                            "and pesticides. Enter budgets in billion dollars per year. "
                             "Startup % / fraction_functioning defaults: 0.5 / 0.4. "
                             "Production chart shows new-factory output only."
                         ),
@@ -493,19 +606,19 @@ app.layout = html.Div(
                             [
                                 budget_input(
                                     "nh3",
-                                    "NH3 (Ammonia) budget (USD/yr)",
+                                    "NH3 (Ammonia) budget ($B / yr)",
                                     COMMODITY_BY_KEY["nh3"].default_annual_budget_usd,
                                 ),
                                 budget_input(
                                     "potassium",
-                                    "Potassium (K) budget (USD/yr)",
+                                    "Potassium (K) budget ($B / yr)",
                                     COMMODITY_BY_KEY[
                                         "potassium"
                                     ].default_annual_budget_usd,
                                 ),
                                 budget_input(
                                     "phosphate",
-                                    "Phosphate (P) budget (USD/yr)",
+                                    "Phosphate (P) budget ($B / yr)",
                                     COMMODITY_BY_KEY[
                                         "phosphate"
                                     ].default_annual_budget_usd,
@@ -517,26 +630,26 @@ app.layout = html.Div(
                             [
                                 budget_input(
                                     "h2so4",
-                                    "Sulfuric acid (H2SO4) budget (USD/yr)",
+                                    "Sulfuric acid (H2SO4) budget ($B / yr)",
                                     COMMODITY_BY_KEY["h2so4"].default_annual_budget_usd,
                                 ),
                                 budget_input(
                                     "herbicide",
-                                    "Herbicide budget (USD/yr)",
+                                    "Herbicide budget ($B / yr)",
                                     COMMODITY_BY_KEY[
                                         "herbicide"
                                     ].default_annual_budget_usd,
                                 ),
                                 budget_input(
                                     "insecticide",
-                                    "Insecticide budget (USD/yr)",
+                                    "Insecticide budget ($B / yr)",
                                     COMMODITY_BY_KEY[
                                         "insecticide"
                                     ].default_annual_budget_usd,
                                 ),
                                 budget_input(
                                     "fungicide",
-                                    "Fungicide budget (USD/yr)",
+                                    "Fungicide budget ($B / yr)",
                                     COMMODITY_BY_KEY[
                                         "fungicide"
                                     ].default_annual_budget_usd,
@@ -613,6 +726,11 @@ app.layout = html.Div(
                                             value="nh3",
                                             clearable=False,
                                             className="commodity-select",
+                                            style={
+                                                "backgroundColor": COLORS["input"],
+                                                "color": COLORS["ink"],
+                                                "borderRadius": "10px",
+                                            },
                                         ),
                                     ]
                                 ),
@@ -643,10 +761,10 @@ app.layout = html.Div(
                                             "format": {"specifier": ".2f"},
                                         },
                                         {
-                                            "name": "Budget USD/yr",
-                                            "id": "BudgetUSD",
+                                            "name": "Budget $B/yr",
+                                            "id": "BudgetB",
                                             "type": "numeric",
-                                            "format": {"specifier": ",.0f"},
+                                            "format": {"specifier": ".2f"},
                                         },
                                     ],
                                     data=[
@@ -654,21 +772,17 @@ app.layout = html.Div(
                                             "Category": row["Category"],
                                             "Commodity": row["Commodity"],
                                             "SharePct": 100.0 * float(row["Share"]),
-                                            "BudgetUSD": float(row["Budget USD/yr"]),
+                                            "BudgetB": float(row["Budget USD/yr"])
+                                            / 1e9,
                                         }
                                         for _, row in _ALLOCATION_DF.iterrows()
                                     ],
-                                    style_table={"overflowX": "auto", "marginTop": "8px"},
-                                    style_cell={
-                                        "fontFamily": "IBM Plex Sans, sans-serif",
-                                        "fontSize": 13,
-                                        "padding": "6px 10px",
-                                        "textAlign": "left",
+                                    style_table={
+                                        "overflowX": "auto",
+                                        "marginTop": "8px",
                                     },
-                                    style_header={
-                                        "fontWeight": "600",
-                                        "backgroundColor": "#ece7de",
-                                    },
+                                    style_cell=_TABLE_STYLE_CELL,
+                                    style_header=_TABLE_STYLE_HEADER,
                                 ),
                             ],
                             style={"marginTop": "14px"},
@@ -696,20 +810,12 @@ app.layout = html.Div(
                             ],
                             data=[],
                             style_table={"overflowX": "auto"},
-                            style_cell={
-                                "fontFamily": "IBM Plex Sans, sans-serif",
-                                "fontSize": 13,
-                                "padding": "8px 10px",
-                                "border": f"1px solid {COLORS['border']}",
-                            },
-                            style_header={
-                                "fontWeight": 600,
-                                "backgroundColor": "#efeae1",
-                            },
+                            style_cell=_TABLE_STYLE_CELL,
+                            style_header=_TABLE_STYLE_HEADER,
                             style_data_conditional=[
                                 {
                                     "if": {"row_index": "odd"},
-                                    "backgroundColor": "#faf8f4",
+                                    "backgroundColor": "#1a2436",
                                 }
                             ],
                         ),
@@ -744,32 +850,46 @@ app.layout = html.Div(
 def update_dashboard(
     n_clicks,
     commodity_key,
-    budget_nh3,
-    budget_k,
-    budget_p,
-    budget_h2so4,
-    budget_herbicide,
-    budget_insecticide,
-    budget_fungicide,
+    budget_nh3_b,
+    budget_k_b,
+    budget_p_b,
+    budget_h2so4_b,
+    budget_herbicide_b,
+    budget_insecticide_b,
+    budget_fungicide_b,
     startup_pct,
     fraction_functioning,
 ):
-    budgets = {
-        "nh3": budget_nh3,
-        "potassium": budget_k,
-        "phosphate": budget_p,
-        "h2so4": budget_h2so4,
-        "herbicide": budget_herbicide,
-        "insecticide": budget_insecticide,
-        "fungicide": budget_fungicide,
+    # UI values are billion $/yr; convert to USD for the model.
+    budgets_b = {
+        "nh3": budget_nh3_b,
+        "potassium": budget_k_b,
+        "phosphate": budget_p_b,
+        "h2so4": budget_h2so4_b,
+        "herbicide": budget_herbicide_b,
+        "insecticide": budget_insecticide_b,
+        "fungicide": budget_fungicide_b,
     }
     selected = commodity_key or "nh3"
-    budget = budgets.get(selected)
+    budget_b = budgets_b.get(selected)
 
-    if budget is None or float(budget) <= 0:
-        msg = "Enter a positive Annual World Construction Budget."
+    if budget_b is None:
+        msg = "Enter a positive annual budget in billion dollars ($B / yr)."
         empty = _empty_fig("Waiting for budget")
         return empty, empty, [], [], msg
+
+    try:
+        budget_b = float(budget_b)
+    except (TypeError, ValueError):
+        empty = _empty_fig("Invalid budget")
+        return empty, empty, [], [], "Budget must be a number in billion $/yr."
+
+    if budget_b <= 0:
+        msg = "Enter a positive annual budget in billion dollars ($B / yr)."
+        empty = _empty_fig("Waiting for budget")
+        return empty, empty, [], [], msg
+
+    budget = _billions_to_usd(budget_b)
 
     if startup_pct is None:
         startup_pct = DEFAULT_STARTUP_PCT_OF_FULL
@@ -803,7 +923,7 @@ def update_dashboard(
     try:
         result = simulate_commodity(
             commodity,
-            float(budget),
+            budget,
             startup_pct_of_full=startup_pct,
             fraction_functioning=fraction_functioning,
         )
@@ -812,7 +932,8 @@ def update_dashboard(
         return empty, empty, [], [], f"Error: {exc}"
 
     status = (
-        f"Showing {commodity.label} at {_fmt_money(float(budget))}/yr, "
+        f"Showing {commodity.label} at {_fmt_money(budget)}/yr "
+        f"({budget_b:g} $B/yr), "
         f"startup%={startup_pct:g}, functioning={fraction_functioning:g} "
         f"(update #{n_clicks})."
     )
