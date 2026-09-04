@@ -39,17 +39,20 @@ _CATEGORY_TOTALS = category_budget_totals(REFERENCE_ANNUAL_BUDGET_USD)
 
 # Dark theme palette (user-requested)
 COLORS = {
-    "regular": "#5eb8ff",
-    "fast": "#ff9f6b",
+    "regular": "#4cc9f0",
+    "fast": "#f4a261",
+    "regular_fill": "rgba(76, 201, 240, 0.12)",
+    "fast_fill": "rgba(244, 162, 97, 0.10)",
+    "baseline": "#94a3b8",
     "bg": "#0b1220",
-    "panel": "#141c2b",
-    "plot": "#101826",
-    "ink": "#e8eef8",
+    "panel": "#121a28",
+    "plot": "#0e1624",
+    "ink": "#eef3fb",
     "muted": "#9aa8bc",
     "accent": "#3dd6c6",
     "border": "#2a364a",
-    "grid": "#2c3a52",
-    "grid_minor": "#1a2436",
+    "grid": "rgba(148, 163, 184, 0.16)",
+    "grid_minor": "rgba(148, 163, 184, 0.07)",
     "input": "#0f1724",
 }
 
@@ -98,8 +101,12 @@ def _billions_to_usd(billions: float) -> float:
 def _axis_style(x_max: float | None = None) -> tuple[dict, dict]:
     """Shared dark-theme axes: yearly labels, soft major + minor grids."""
     xaxis = dict(
-        title=dict(text="Years", standoff=12, font=dict(size=13, color=COLORS["muted"])),
-        range=[-0.25, (x_max if x_max is not None else 9.5) + 0.15],
+        title=dict(
+            text="Years after disruption",
+            standoff=14,
+            font=dict(size=12, color=COLORS["muted"]),
+        ),
+        range=[-0.35, (x_max if x_max is not None else 9.5) + 0.2],
         tick0=0,
         dtick=1,
         tickangle=0,
@@ -108,44 +115,42 @@ def _axis_style(x_max: float | None = None) -> tuple[dict, dict]:
         gridcolor=COLORS["grid"],
         gridwidth=1,
         minor=dict(
-            tickmode="auto",
             dtick=0.5,
             showgrid=True,
             gridcolor=COLORS["grid_minor"],
-            gridwidth=0.6,
+            gridwidth=0.8,
         ),
         zeroline=True,
-        zerolinecolor="#4a5d78",
-        zerolinewidth=1.2,
-        showline=True,
-        linecolor=COLORS["border"],
-        mirror=True,
+        zerolinecolor="rgba(148, 163, 184, 0.45)",
+        zerolinewidth=1.4,
+        showline=False,
         ticks="outside",
-        tickcolor=COLORS["border"],
+        tickcolor="rgba(148, 163, 184, 0.35)",
+        ticklen=6,
         showspikes=True,
         spikemode="across",
         spikesnap="cursor",
         spikethickness=1,
-        spikecolor="#5a6f8c",
+        spikecolor="rgba(148, 163, 184, 0.45)",
         spikedash="dot",
     )
     yaxis = dict(
-        title=dict(standoff=10, font=dict(size=13, color=COLORS["muted"])),
+        title=dict(standoff=12, font=dict(size=12, color=COLORS["muted"])),
         tickfont=dict(size=12, color=COLORS["muted"]),
         showgrid=True,
         gridcolor=COLORS["grid"],
         gridwidth=1,
-        minor=dict(showgrid=True, gridcolor=COLORS["grid_minor"], gridwidth=0.6),
+        minor=dict(showgrid=True, gridcolor=COLORS["grid_minor"], gridwidth=0.8),
         zeroline=True,
-        zerolinecolor="#4a5d78",
-        zerolinewidth=1.2,
-        showline=True,
-        linecolor=COLORS["border"],
-        mirror=True,
+        zerolinecolor="rgba(148, 163, 184, 0.45)",
+        zerolinewidth=1.4,
+        showline=False,
         ticks="outside",
-        tickcolor=COLORS["border"],
+        tickcolor="rgba(148, 163, 184, 0.35)",
+        ticklen=6,
         tickformat=".2~s",
         separatethousands=True,
+        rangemode="tozero",
     )
     return xaxis, yaxis
 
@@ -157,28 +162,37 @@ def _chart_layout(x_max: float | None = None, **kwargs) -> dict:
         paper_bgcolor=COLORS["panel"],
         plot_bgcolor=COLORS["plot"],
         font=dict(family="DM Sans, sans-serif", color=COLORS["ink"], size=13),
-        title=dict(font=dict(size=16, color=COLORS["ink"]), x=0.01, xanchor="left"),
+        title=dict(
+            font=dict(size=17, color=COLORS["ink"], family="Fraunces, serif"),
+            x=0.0,
+            xanchor="left",
+            y=0.98,
+            yanchor="top",
+            pad=dict(t=4, b=8),
+        ),
         legend=dict(
             orientation="h",
-            yanchor="bottom",
-            y=1.08,
-            x=0,
+            yanchor="top",
+            y=-0.18,
+            x=0.0,
+            xanchor="left",
             bgcolor="rgba(0,0,0,0)",
             borderwidth=0,
             font=dict(size=12, color=COLORS["muted"]),
+            itemsizing="constant",
+            traceorder="normal",
         ),
-        margin=dict(l=72, r=28, t=96, b=64),
-        height=480,
+        margin=dict(l=70, r=24, t=78, b=110),
+        height=520,
         hovermode="x unified",
         hoverlabel=dict(
-            bgcolor="#1a2436",
-            bordercolor=COLORS["border"],
+            bgcolor="#182234",
+            bordercolor="#334155",
             font=dict(family="DM Sans, sans-serif", size=12, color=COLORS["ink"]),
         ),
         xaxis=xaxis,
         yaxis=yaxis,
     )
-    # Allow callers to deepen axis titles / ranges without wiping grid style.
     if "xaxis" in kwargs:
         merged_x = dict(xaxis)
         merged_x.update(kwargs.pop("xaxis"))
@@ -191,9 +205,33 @@ def _chart_layout(x_max: float | None = None, **kwargs) -> dict:
     return base
 
 
+def _budget_annotation(budget: float) -> dict:
+    return dict(
+        text=f"Budget {_fmt_money(budget)}/yr",
+        xref="paper",
+        yref="paper",
+        x=1.0,
+        y=1.08,
+        xanchor="right",
+        yanchor="bottom",
+        showarrow=False,
+        font=dict(size=12, color=COLORS["muted"], family="DM Sans, sans-serif"),
+        bgcolor="rgba(30, 41, 59, 0.55)",
+        bordercolor="rgba(71, 85, 105, 0.55)",
+        borderwidth=1,
+        borderpad=6,
+    )
+
+
 def _empty_fig(title: str) -> go.Figure:
     fig = go.Figure()
-    fig.update_layout(**_chart_layout(title=title, height=420))
+    fig.update_layout(
+        **_chart_layout(
+            title=title,
+            height=420,
+            margin=dict(l=70, r=24, t=70, b=70),
+        )
+    )
     return fig
 
 
@@ -209,7 +247,9 @@ def make_production_figure(result: dict[str, Any]) -> go.Figure:
             y=weekly["Regular new megatonnes/year"],
             mode="lines",
             name="Regular Construction",
-            line=dict(color=COLORS["regular"], width=2.8, shape="hv"),
+            line=dict(color=COLORS["regular"], width=3, shape="hv"),
+            fill="tozeroy",
+            fillcolor=COLORS["regular_fill"],
             hovertemplate="Regular: %{y:.1f} Mt/yr<extra></extra>",
         )
     )
@@ -219,7 +259,9 @@ def make_production_figure(result: dict[str, Any]) -> go.Figure:
             y=weekly["Fast new megatonnes/year"],
             mode="lines",
             name="Fast Construction",
-            line=dict(color=COLORS["fast"], width=2.8, shape="hv"),
+            line=dict(color=COLORS["fast"], width=3, shape="hv"),
+            fill="tozeroy",
+            fillcolor=COLORS["fast_fill"],
             hovertemplate="Fast: %{y:.1f} Mt/yr<extra></extra>",
         )
     )
@@ -229,7 +271,7 @@ def make_production_figure(result: dict[str, Any]) -> go.Figure:
             y=[commodity.current_mt_per_year, commodity.current_mt_per_year],
             mode="lines",
             name="Pre-disruption current (100%)",
-            line=dict(color="#a8b8c8", width=2, dash="dot"),
+            line=dict(color=COLORS["baseline"], width=2.2, dash="dot"),
             hovertemplate=(
                 "Pre-disruption baseline: "
                 f"{commodity.current_mt_per_year:g} Mt/yr<extra></extra>"
@@ -239,15 +281,13 @@ def make_production_figure(result: dict[str, Any]) -> go.Figure:
     fig.update_layout(
         **_chart_layout(
             x_max=x_max,
-            title=(
-                f"{commodity.production_chart_title} — new factory production"
-                f"<br><sup style='color:#9aa8bc'>Budget = {_fmt_money(budget)}/yr</sup>"
-            ),
+            title=f"{commodity.product_short} new-factory production ramp-up",
+            annotations=[_budget_annotation(budget)],
             yaxis=dict(
                 title=dict(
                     text="New megatonnes / year",
-                    standoff=10,
-                    font=dict(size=13, color=COLORS["muted"]),
+                    standoff=12,
+                    font=dict(size=12, color=COLORS["muted"]),
                 )
             ),
         )
@@ -285,7 +325,9 @@ def make_multiple_figure(result: dict[str, Any]) -> go.Figure:
             y=reg_y,
             mode="lines",
             name="Regular Construction",
-            line=dict(color=COLORS["regular"], width=2.8),
+            line=dict(color=COLORS["regular"], width=3),
+            fill="tozeroy",
+            fillcolor=COLORS["regular_fill"],
             hovertemplate="Regular: %{y:.2f}× current<extra></extra>",
         )
     )
@@ -295,22 +337,22 @@ def make_multiple_figure(result: dict[str, Any]) -> go.Figure:
             y=fast_y,
             mode="lines",
             name="Fast Construction",
-            line=dict(color=COLORS["fast"], width=2.8),
+            line=dict(color=COLORS["fast"], width=3),
+            fill="tozeroy",
+            fillcolor=COLORS["fast_fill"],
             hovertemplate="Fast: %{y:.2f}× current<extra></extra>",
         )
     )
     fig.update_layout(
         **_chart_layout(
             x_max=x_max,
-            title=(
-                f"{commodity.multiple_chart_title}"
-                f"<br><sup style='color:#9aa8bc'>Budget = {_fmt_money(budget)}/yr</sup>"
-            ),
+            title=f"Multiple of current {commodity.product_short} production",
+            annotations=[_budget_annotation(budget)],
             yaxis=dict(
                 title=dict(
                     text=commodity.multiple_y_label,
-                    standoff=10,
-                    font=dict(size=13, color=COLORS["muted"]),
+                    standoff=12,
+                    font=dict(size=12, color=COLORS["muted"]),
                 )
             ),
         )
