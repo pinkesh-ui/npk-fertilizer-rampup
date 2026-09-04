@@ -342,10 +342,7 @@ def budget_input(commodity_key: str, label: str, default_usd: float) -> html.Div
                 className="budget-input",
                 placeholder="e.g. 555.41",
             ),
-            html.Div(
-                f"Enter billion $/yr (default {default_b:g} → {_fmt_money(default_usd)}/yr)",
-                className="hint",
-            ),
+            html.Div(f"Default {default_b:g} $B/yr", className="hint"),
         ],
         className="budget-field",
     )
@@ -413,24 +410,46 @@ app.index_string = """
             }
             .controls {
                 margin-top: 28px;
-                padding: 22px;
+                padding: 24px 24px 28px;
                 background: rgba(20, 28, 43, 0.88);
                 border: 1px solid var(--border);
                 border-radius: 16px;
                 box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
                 backdrop-filter: blur(8px);
             }
+            .control-section + .control-section {
+                margin-top: 28px;
+                padding-top: 24px;
+                border-top: 1px solid var(--border);
+            }
+            .section-title {
+                margin: 0 0 14px;
+                font-size: 0.78rem;
+                font-weight: 700;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: var(--accent);
+            }
             .budget-row {
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-                gap: 16px;
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+                gap: 20px 18px;
+                align-items: start;
+            }
+            .budget-field {
+                display: flex;
+                flex-direction: column;
+                min-width: 0;
+                min-height: 108px;
             }
             .budget-field label {
                 display: block;
                 font-weight: 600;
-                margin-bottom: 6px;
+                margin-bottom: 8px;
                 color: var(--ink);
-                font-size: 0.92rem;
+                font-size: 0.9rem;
+                line-height: 1.3;
+                min-height: 2.4em;
             }
             .budget-input {
                 width: 100%;
@@ -439,20 +458,27 @@ app.index_string = """
                 border: 1px solid var(--border);
                 border-radius: 10px;
                 font-size: 1rem;
-                color: var(--ink);
+                font-family: "DM Sans", sans-serif;
+                color: var(--ink) !important;
                 background: var(--input);
                 outline: none;
+                color-scheme: dark;
+                -moz-appearance: textfield;
                 transition: border-color 0.15s ease, box-shadow 0.15s ease;
+            }
+            .budget-input::-webkit-outer-spin-button,
+            .budget-input::-webkit-inner-spin-button {
+                opacity: 0.55;
             }
             .budget-input:focus {
                 border-color: var(--accent);
                 box-shadow: 0 0 0 3px rgba(61, 214, 198, 0.18);
             }
             .hint {
-                margin-top: 5px;
-                font-size: 0.8rem;
+                margin-top: 8px;
+                font-size: 0.78rem;
                 color: var(--muted);
-                line-height: 1.35;
+                line-height: 1.4;
             }
             .actions {
                 display: flex;
@@ -552,7 +578,12 @@ app.index_string = """
                 color: var(--accent2);
                 font-weight: 600;
             }
-            @media (max-width: 900px) {
+            @media (max-width: 1100px) {
+                .budget-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+                .budget-field { min-height: 0; }
+                .budget-field label { min-height: 0; }
+            }
+            @media (max-width: 640px) {
                 .budget-row { grid-template-columns: 1fr; }
             }
         </style>
@@ -604,113 +635,134 @@ app.layout = html.Div(
                     [
                         html.Div(
                             [
-                                budget_input(
-                                    "nh3",
-                                    "NH3 (Ammonia) budget ($B / yr)",
-                                    COMMODITY_BY_KEY["nh3"].default_annual_budget_usd,
-                                ),
-                                budget_input(
-                                    "potassium",
-                                    "Potassium (K) budget ($B / yr)",
-                                    COMMODITY_BY_KEY[
-                                        "potassium"
-                                    ].default_annual_budget_usd,
-                                ),
-                                budget_input(
-                                    "phosphate",
-                                    "Phosphate (P) budget ($B / yr)",
-                                    COMMODITY_BY_KEY[
-                                        "phosphate"
-                                    ].default_annual_budget_usd,
-                                ),
-                            ],
-                            className="budget-row",
-                        ),
-                        html.Div(
-                            [
-                                budget_input(
-                                    "h2so4",
-                                    "Sulfuric acid (H2SO4) budget ($B / yr)",
-                                    COMMODITY_BY_KEY["h2so4"].default_annual_budget_usd,
-                                ),
-                                budget_input(
-                                    "herbicide",
-                                    "Herbicide budget ($B / yr)",
-                                    COMMODITY_BY_KEY[
-                                        "herbicide"
-                                    ].default_annual_budget_usd,
-                                ),
-                                budget_input(
-                                    "insecticide",
-                                    "Insecticide budget ($B / yr)",
-                                    COMMODITY_BY_KEY[
-                                        "insecticide"
-                                    ].default_annual_budget_usd,
-                                ),
-                                budget_input(
-                                    "fungicide",
-                                    "Fungicide budget ($B / yr)",
-                                    COMMODITY_BY_KEY[
-                                        "fungicide"
-                                    ].default_annual_budget_usd,
+                                html.Div("Fertilizer budgets ($B / yr)", className="section-title"),
+                                html.Div(
+                                    [
+                                        budget_input(
+                                            "nh3",
+                                            "NH3 (Ammonia)",
+                                            COMMODITY_BY_KEY[
+                                                "nh3"
+                                            ].default_annual_budget_usd,
+                                        ),
+                                        budget_input(
+                                            "potassium",
+                                            "Potassium (K)",
+                                            COMMODITY_BY_KEY[
+                                                "potassium"
+                                            ].default_annual_budget_usd,
+                                        ),
+                                        budget_input(
+                                            "phosphate",
+                                            "Phosphate (P)",
+                                            COMMODITY_BY_KEY[
+                                                "phosphate"
+                                            ].default_annual_budget_usd,
+                                        ),
+                                    ],
+                                    className="budget-row",
                                 ),
                             ],
-                            className="budget-row",
-                            style={"marginTop": "16px"},
+                            className="control-section",
                         ),
                         html.Div(
                             [
                                 html.Div(
-                                    [
-                                        html.Label(
-                                            "Startup % of Fully Scaled Production"
-                                        ),
-                                        dcc.Input(
-                                            id="startup-pct",
-                                            type="number",
-                                            value=DEFAULT_STARTUP_PCT_OF_FULL,
-                                            min=0.01,
-                                            max=1.0,
-                                            step=0.05,
-                                            debounce=True,
-                                            className="budget-input",
-                                        ),
-                                        html.Div(
-                                            "Commissioning: new-plant output = "
-                                            f"full x this (default "
-                                            f"{DEFAULT_STARTUP_PCT_OF_FULL:g})",
-                                            className="hint",
-                                        ),
-                                    ],
-                                    className="budget-field",
+                                    "H2SO4 & pesticide budgets ($B / yr)",
+                                    className="section-title",
                                 ),
                                 html.Div(
                                     [
-                                        html.Label(
-                                            "fraction_functioning_after_disruption"
+                                        budget_input(
+                                            "h2so4",
+                                            "Sulfuric acid (H2SO4)",
+                                            COMMODITY_BY_KEY[
+                                                "h2so4"
+                                            ].default_annual_budget_usd,
                                         ),
-                                        dcc.Input(
-                                            id="fraction-functioning",
-                                            type="number",
-                                            value=DEFAULT_FRACTION_FUNCTIONING,
-                                            min=0.01,
-                                            max=1.0,
-                                            step=0.05,
-                                            debounce=True,
-                                            className="budget-input",
+                                        budget_input(
+                                            "herbicide",
+                                            "Herbicide",
+                                            COMMODITY_BY_KEY[
+                                                "herbicide"
+                                            ].default_annual_budget_usd,
                                         ),
-                                        html.Div(
-                                            "Disruption: surviving existing plants + "
-                                            "new plants/year = (budget/CAPEX) x this "
-                                            f"(default {DEFAULT_FRACTION_FUNCTIONING:g})",
-                                            className="hint",
+                                        budget_input(
+                                            "insecticide",
+                                            "Insecticide",
+                                            COMMODITY_BY_KEY[
+                                                "insecticide"
+                                            ].default_annual_budget_usd,
+                                        ),
+                                        budget_input(
+                                            "fungicide",
+                                            "Fungicide",
+                                            COMMODITY_BY_KEY[
+                                                "fungicide"
+                                            ].default_annual_budget_usd,
                                         ),
                                     ],
-                                    className="budget-field",
+                                    className="budget-row",
                                 ),
                             ],
-                            className="budget-row",
-                            style={"marginTop": "16px"},
+                            className="control-section",
+                        ),
+                        html.Div(
+                            [
+                                html.Div("Scenario inputs", className="section-title"),
+                                html.Div(
+                                    [
+                                        html.Div(
+                                            [
+                                                html.Label(
+                                                    "Startup % of Fully Scaled Production"
+                                                ),
+                                                dcc.Input(
+                                                    id="startup-pct",
+                                                    type="number",
+                                                    value=DEFAULT_STARTUP_PCT_OF_FULL,
+                                                    min=0.01,
+                                                    max=1.0,
+                                                    step=0.05,
+                                                    debounce=True,
+                                                    className="budget-input",
+                                                ),
+                                                html.Div(
+                                                    f"Default {DEFAULT_STARTUP_PCT_OF_FULL:g} "
+                                                    "(new plant starts at this share of full)",
+                                                    className="hint",
+                                                ),
+                                            ],
+                                            className="budget-field",
+                                        ),
+                                        html.Div(
+                                            [
+                                                html.Label(
+                                                    "fraction_functioning_after_disruption"
+                                                ),
+                                                dcc.Input(
+                                                    id="fraction-functioning",
+                                                    type="number",
+                                                    value=DEFAULT_FRACTION_FUNCTIONING,
+                                                    min=0.01,
+                                                    max=1.0,
+                                                    step=0.05,
+                                                    debounce=True,
+                                                    className="budget-input",
+                                                ),
+                                                html.Div(
+                                                    f"Default {DEFAULT_FRACTION_FUNCTIONING:g} "
+                                                    "(surviving plants + new-build rate)",
+                                                    className="hint",
+                                                ),
+                                            ],
+                                            className="budget-field",
+                                        ),
+                                    ],
+                                    className="budget-row",
+                                ),
+                            ],
+                            className="control-section",
                         ),
                         html.Div(
                             [
