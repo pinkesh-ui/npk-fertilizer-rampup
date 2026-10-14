@@ -371,7 +371,7 @@ def write_commodity_sheet(wb: Workbook, commodity, budget: float) -> None:
     weekly = result["weekly"]
 
     ws = wb.create_sheet(SHEET_NAMES[commodity.key])
-    ws["A1"] = f"{commodity.label} — ramp-up (equal-pace default budget)"
+    ws["A1"] = f"{commodity.label} - ramp-up (equal-pace default budget)"
     ws["A1"].font = TITLE_FONT
     ws.merge_cells("A1:F1")
 
