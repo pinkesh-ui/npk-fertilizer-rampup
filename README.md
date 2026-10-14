@@ -100,16 +100,17 @@ capital efficiency **~$1,250/tpa**.
 
 | Commodity | Default annual budget (USD) | Current production baseline |
 |-----------|----------------------------|-----------------------------|
-| NH3 | ~$619B (~82% of pot) | 240 Mt/yr |
-| Phosphate | ~$67B | 47.8 Mt/yr |
-| Potassium | ~$53B | 41.6 Mt/yr potash |
-| Herbicides | ~$8B | 1.90 Mt/yr |
-| Fungicides | ~$7B | 0.82 Mt/yr |
-| Insecticides | ~$1.8B | 0.82 Mt/yr |
-| H2SO4 | ~$1.4B | 150 Mt/yr |
+| NH3 | ~$513B (~68% of pot) | 240 Mt/yr |
+| Herbicides | ~$94B | 1.9902 Mt ai/yr |
+| Phosphate | ~$55B | 47.8 Mt/yr |
+| Potassium | ~$44B | 41.6 Mt/yr potash |
+| Fungicides | ~$42B | 0.8624 Mt ai/yr |
+| Insecticides | ~$8.6B | 0.8232 Mt ai/yr |
+| H2SO4 | ~$1.2B | 150 Mt/yr |
 
-Equal-pace defaults are recomputed at import from CAPEX functions (NH3 share rose
-after the higher $/tpa Kingisepp benchmark).
+Pesticide plants use **t/yr** capacities from the scale-up assumptions sheet
+(herb 600, insecticide 2100, fungicide 1100 t/yr). Equal-pace defaults are
+recomputed at import from CAPEX functions.
 
 ## License
 

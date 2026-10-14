@@ -213,12 +213,17 @@ def compute_h2so4_capex() -> CapexResult:
 def _pesticide_capex(
     ref_capacity_tpy: float,
     ref_capex_usd: float,
-    target_tpd: float,
+    target_tpy: float,
+    target_capex_usd: float,
 ) -> CapexResult:
-    """Pesticide CAPEX: ref CAPEX × (target_tpy / ref_tpy)^0.7."""
-    target_tpy = target_tpd * 365.0
+    """
+    Pesticide CAPEX from scale-up assumptions sheet (capacities in t/yr).
+
+    ``target_capex_usd`` is the workbook target-plant CAPEX estimate
+    (= ref CAPEX × (target_tpy / ref_tpy)^0.7).
+    """
     scale = target_tpy / ref_capacity_tpy
-    regular = ref_capex_usd * (scale**COST_CAPACITY_EXPONENT)
+    regular = target_capex_usd
     fast = FAST_CONSTRUCTION_COST_FACTOR * regular
     return CapexResult(
         regular_capex_usd=regular,
@@ -227,26 +232,27 @@ def _pesticide_capex(
         notes={
             "ref_capacity_tpy": ref_capacity_tpy,
             "ref_capex_usd": ref_capex_usd,
-            "target_tpd": target_tpd,
             "target_tpy": target_tpy,
+            "target_tpd": target_tpy / 365.0,
             "plant_scale_factor": scale,
+            "cost_capacity_exponent": COST_CAPACITY_EXPONENT,
         },
     )
 
 
 def compute_herbicide_capex() -> CapexResult:
-    """From pesticide workbook CAPEX Calcs!F4."""
-    return _pesticide_capex(500.0, 7.5e6, 1000.0)
+    """Pesticide scale-up assumptions: herbicides row."""
+    return _pesticide_capex(500.0, 14_605_000.0, 600.0, 16_593_135.0)
 
 
 def compute_insecticide_capex() -> CapexResult:
-    """From pesticide workbook CAPEX Calcs!F5."""
-    return _pesticide_capex(2000.0, 7.82e6, 400.0)
+    """Pesticide scale-up assumptions: insecticides row."""
+    return _pesticide_capex(2000.0, 12_467_000.0, 2100.0, 12_900_141.0)
 
 
 def compute_fungicide_capex() -> CapexResult:
-    """From pesticide workbook CAPEX Calcs!F6."""
-    return _pesticide_capex(1000.0, 19.42e6, 400.0)
+    """Pesticide scale-up assumptions: fungicides & bactericides row."""
+    return _pesticide_capex(1000.0, 29_302_000.0, 1100.0, 31_323_634.0)
 
 
 CAPEX_FUNCS = {
@@ -316,31 +322,32 @@ def _commodity_specs() -> list[dict]:
             "key": "herbicide",
             "label": "Herbicides",
             "product_short": "Herb",
-            "current_mt_per_year": 1.9023,
+            # Current use 2023 (Mt ai/yr); target plant 600 t/yr → tpd = 600/365
+            "current_mt_per_year": 1.9902,
             "production_chart_title": "HERBICIDE/YEAR PRODUCTION RAMP-UP",
             "multiple_chart_title": "MULTIPLE OF CURRENT HERBICIDE PRODUCTION RAMP-UP",
             "multiple_y_label": "Multiple of current herbicide production",
-            "target_plant_size_tpd": 1000.0,
+            "target_plant_size_tpd": 600.0 / 365.0,
         },
         {
             "key": "insecticide",
             "label": "Insecticides",
             "product_short": "Ins",
-            "current_mt_per_year": 0.8206,
+            "current_mt_per_year": 0.8232,
             "production_chart_title": "INSECTICIDE/YEAR PRODUCTION RAMP-UP",
             "multiple_chart_title": "MULTIPLE OF CURRENT INSECTICIDE PRODUCTION RAMP-UP",
             "multiple_y_label": "Multiple of current insecticide production",
-            "target_plant_size_tpd": 400.0,
+            "target_plant_size_tpd": 2100.0 / 365.0,
         },
         {
             "key": "fungicide",
             "label": "Fungicides & bactericides",
             "product_short": "Fun",
-            "current_mt_per_year": 0.8206,
+            "current_mt_per_year": 0.8624,
             "production_chart_title": "FUNGICIDE/YEAR PRODUCTION RAMP-UP",
             "multiple_chart_title": "MULTIPLE OF CURRENT FUNGICIDE PRODUCTION RAMP-UP",
             "multiple_y_label": "Multiple of current fungicide production",
-            "target_plant_size_tpd": 400.0,
+            "target_plant_size_tpd": 1100.0 / 365.0,
         },
     ]
 

@@ -87,6 +87,28 @@ def test_nh3_capex_matches_eurochem_kingisepp_benchmark():
     assert abs(capex.capital_efficiency_usd_per_tpa - 1250.0) < 1.0
 
 
+def test_pesticide_assumptions_match_scale_up_sheet():
+    """Updated pesticide scale-up assumptions (t/yr plants, 2023 use)."""
+    from agricultural_input_rampup import compute_fungicide_capex
+    from agricultural_input_rampup import compute_herbicide_capex
+    from agricultural_input_rampup import compute_insecticide_capex
+
+    herb = next(c for c in COMMODITIES if c.key == "herbicide")
+    ins = next(c for c in COMMODITIES if c.key == "insecticide")
+    fun = next(c for c in COMMODITIES if c.key == "fungicide")
+
+    assert herb.current_mt_per_year == 1.9902
+    assert ins.current_mt_per_year == 0.8232
+    assert fun.current_mt_per_year == 0.8624
+    assert abs(herb.target_plant_size_tpd - 600.0 / 365.0) < 1e-9
+    assert abs(ins.target_plant_size_tpd - 2100.0 / 365.0) < 1e-9
+    assert abs(fun.target_plant_size_tpd - 1100.0 / 365.0) < 1e-9
+
+    assert abs(compute_herbicide_capex().regular_capex_usd - 16_593_135.0) < 1.0
+    assert abs(compute_insecticide_capex().regular_capex_usd - 12_900_141.0) < 1.0
+    assert abs(compute_fungicide_capex().regular_capex_usd - 31_323_634.0) < 1.0
+
+
 def test_excel_nh3_plants_per_year_at_half_fraction():
     """budget/CAPEX × 0.5 at full $758B NH3 budget (EuroChem ~$1.369B/plant)."""
     commodity = next(c for c in COMMODITIES if c.key == "nh3")
