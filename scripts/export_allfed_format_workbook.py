@@ -12,9 +12,24 @@ from pathlib import Path
 
 from openpyxl import load_workbook
 from openpyxl.chart import LineChart, Reference
+from openpyxl.chart.axis import ChartLines
 from openpyxl.chart.series import SeriesLabel
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
+
+
+def _enable_axis_values(chart: LineChart, *, y_min: float | None = 0.0) -> None:
+    """Force visible numeric tick labels on both axes (openpyxl defaults delete=True)."""
+    for ax in (chart.x_axis, chart.y_axis):
+        ax.delete = False
+        ax.tickLblPos = "nextTo"
+        ax.majorTickMark = "out"
+        ax.minorTickMark = "none"
+    if y_min is not None:
+        chart.y_axis.scaling.min = y_min
+    chart.y_axis.majorGridlines = ChartLines()
+    chart.x_axis.numFmt = "0.0"
+    chart.y_axis.numFmt = "0.0"
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
@@ -29,7 +44,10 @@ from agricultural_input_rampup import (  # noqa: E402
     DEFAULT_STARTUP_PCT_OF_FULL,
     FAST_CONSTRUCTION_COST_FACTOR,
     FAST_CONSTRUCTION_SPEED_FACTOR,
+    H2SO4_TARGET_PLANT_SIZE_TPD,
     NH3_TARGET_PLANT_SIZE_TPD,
+    PHOSPHATE_TARGET_PLANT_SIZE_TPD,
+    POTASSIUM_TARGET_PLANT_SIZE_TPD,
     allocate_equal_pace_budgets,
 )
 
@@ -146,13 +164,17 @@ def _write_capex_sheet(ws, key: str, commodity) -> float:
         ws["A16"] = f"Target Plant Size (tonne{meta['product']}/day)"
         ws["B16"] = NH3_TARGET_PLANT_SIZE_TPD
         ws["A17"] = "Plant scale factor"
+        # Sheet uses rounded 1.04; keep as input but also show formula link option
         ws["B17"] = notes["plant_scale_factor"]
-        ws["C17"] = "(sheet shows 1.04)"
+        ws["C17"] = "(sheet shows 1.04; ≈B16/B12)"
         ws["A18"] = "Cost-Capacity Exponent"
         ws["B18"] = COST_CAPACITY_EXPONENT
         ws["A19"] = "Target Plant CAPEX (USD)"
+        # Authoritative EuroChem-scaled estimate (matches code B19)
         ws["B19"] = capex.regular_capex_usd
         ws["D19"] = "<-- Using this estimate"
+        ws["A20"] = "Check: B13*B14*(B16/B12)^B18"
+        ws["B20"] = "=B13*B14*(B16/B12)^B18"
         target_tpd = NH3_TARGET_PLANT_SIZE_TPD
     elif key in ("herbicide", "insecticide", "fungicide"):
         ws["A12"] = "Reference capacity (t/yr)"
@@ -162,31 +184,33 @@ def _write_capex_sheet(ws, key: str, commodity) -> float:
         ws["A14"] = "Target plant size (t/yr)"
         ws["B14"] = notes["target_tpy"]
         ws["A15"] = "Plant scale factor"
-        ws["B15"] = notes["plant_scale_factor"]
+        ws["B15"] = "=B14/B12"
         ws["A16"] = "Target Plant Size (tonnes/day) [= t/yr / 365]"
-        ws["B16"] = target_tpd
+        ws["B16"] = "=B14/365"
         ws["A17"] = "Cost-Capacity Exponent"
         ws["B17"] = COST_CAPACITY_EXPONENT
         ws["A18"] = "(for reference)"
         ws["A19"] = "Target Plant CAPEX (USD)"
-        ws["B19"] = capex.regular_capex_usd
+        ws["B19"] = "=B13*(B14/B12)^B17"
         ws["D19"] = "<-- Using this estimate"
+        target_tpd = notes["target_tpy"] / 365.0
     elif key == "potassium":
         ws["A12"] = "Reference capacity (t/yr MOP)"
         ws["B12"] = notes["ref_capacity_tpy_mop"]
         ws["A13"] = "Reference CAPEX (USD)"
         ws["B13"] = notes["ref_capex_usd"]
-        ws["A14"] = "Target capacity (t/yr)"
-        ws["B14"] = notes["target_tpy"]
-        ws["A15"] = "Plant scale factor"
-        ws["B15"] = notes["plant_scale_factor"]
         ws["A16"] = "Target Plant Size (tonnes/day)"
-        ws["B16"] = target_tpd
+        ws["B16"] = POTASSIUM_TARGET_PLANT_SIZE_TPD
+        ws["A14"] = "Target capacity (t/yr)"
+        ws["B14"] = "=B16*365"
+        ws["A15"] = "Plant scale factor"
+        ws["B15"] = "=B14/B12"
         ws["A17"] = "Cost-Capacity Exponent"
         ws["B17"] = COST_CAPACITY_EXPONENT
         ws["A19"] = "Target Plant CAPEX (USD)"
-        ws["B19"] = capex.regular_capex_usd
+        ws["B19"] = "=B13*(B14/B12)^B17"
         ws["D19"] = "<-- Using this estimate"
+        target_tpd = POTASSIUM_TARGET_PLANT_SIZE_TPD
     elif key == "phosphate":
         ws["A12"] = "Reference capacity (t/day TSP)"
         ws["B12"] = notes["ref_capacity_tpd_tsp"]
@@ -195,16 +219,17 @@ def _write_capex_sheet(ws, key: str, commodity) -> float:
         ws["A14"] = "Inflation multiplier (1978→2025)"
         ws["B14"] = notes["inflation_multiplier"]
         ws["A15"] = "Reference CAPEX (2025 USD)"
-        ws["B15"] = notes["ref_capex_2025_usd"]
+        ws["B15"] = "=B13*B14"
         ws["A16"] = "Target Plant Size (tonnes/day)"
-        ws["B16"] = target_tpd
+        ws["B16"] = PHOSPHATE_TARGET_PLANT_SIZE_TPD
         ws["A17"] = "Plant scale factor"
-        ws["B17"] = notes["plant_scale_factor"]
+        ws["B17"] = "=B16/B12"
         ws["A18"] = "Cost-Capacity Exponent"
         ws["B18"] = COST_CAPACITY_EXPONENT
         ws["A19"] = "Target Plant CAPEX (USD)"
-        ws["B19"] = capex.regular_capex_usd
+        ws["B19"] = "=B15*(B16/B12)^B18"
         ws["D19"] = "<-- Using this estimate"
+        target_tpd = PHOSPHATE_TARGET_PLANT_SIZE_TPD
     else:  # h2so4
         ws["A12"] = "Reference capacity (t/day)"
         ws["B12"] = notes["ref_capacity_tpd"]
@@ -212,24 +237,24 @@ def _write_capex_sheet(ws, key: str, commodity) -> float:
         ws["B13"] = notes["ref_capex_usd"]
         ws["A14"] = "Cost-Capacity Exponent"
         ws["B14"] = notes["cost_capacity_exponent"]
-        ws["A15"] = "Plant scale factor"
-        ws["B15"] = notes["plant_scale_factor"]
         ws["A16"] = "Target Plant Size (tonnes/day)"
-        ws["B16"] = notes["target_tpd"]
-        target_tpd = notes["target_tpd"]
+        ws["B16"] = H2SO4_TARGET_PLANT_SIZE_TPD
+        ws["A15"] = "Plant scale factor"
+        ws["B15"] = "=B16/B12"
         ws["A19"] = "Target Plant CAPEX (USD)"
-        ws["B19"] = capex.regular_capex_usd
+        ws["B19"] = "=B13*(B16/B12)^B14"
         ws["D19"] = "<-- Using this estimate"
+        target_tpd = H2SO4_TARGET_PLANT_SIZE_TPD
 
     ws["F14"] = "Fast construction (24/7) CAPEX"
-    ws["H14"] = f"=H11*B19"
+    ws["H14"] = "=H11*B19"
     ws["A21"] = "Capital efficiency"
-    ws["B21"] = f"=B19/B16/365"
+    ws["B21"] = "=B19/B16/365"
     ws["C21"] = "$/tpa installed"
 
-    # Compatibility cell used by Ramp-up C13 (= F5*7)
+    # Compatibility cell used by Ramp-up C13 (= F5*7); keep linked to B16
     ws["D5"] = f"Target Plant Size (tonne{meta['product']}/day)"
-    ws["F5"] = target_tpd
+    ws["F5"] = "=B16"
     return target_tpd
 
 
@@ -259,6 +284,7 @@ def _add_rampup_charts(ws, product: str) -> None:
     prod.series[1].tx = SeriesLabel(v="Fast Construction")
     prod.series[0].graphicalProperties.line.solidFill = "4F81BD"
     prod.series[1].graphicalProperties.line.solidFill = "C0504D"
+    _enable_axis_values(prod, y_min=0.0)
     ws.add_chart(prod, "O5")
 
     mult = LineChart()
@@ -275,6 +301,7 @@ def _add_rampup_charts(ws, product: str) -> None:
     mult.set_categories(cats2)
     mult.series[0].graphicalProperties.line.solidFill = "4F81BD"
     mult.series[1].graphicalProperties.line.solidFill = "C0504D"
+    _enable_axis_values(mult, y_min=0.0)
     ws.add_chart(mult, "S5")
 
 
@@ -347,7 +374,9 @@ def main() -> Path:
     out_dir.mkdir(exist_ok=True)
     out_path = out_dir / "ALLFED_agricultural_inputs_scale_up_code_matched.xlsx"
     downloads = (
-        Path.home() / "Downloads" / "ALLFED_agricultural_inputs_scale_up_code_matched.xlsx"
+        Path.home()
+        / "Downloads"
+        / "ALLFED_agricultural_inputs_scale_up_code_matched_plant_sizes.xlsx"
     )
 
     shutil.copy2(TEMPLATE, out_path)
@@ -429,9 +458,17 @@ def main() -> Path:
         wb.move_sheet(name, offset=i - wb.sheetnames.index(name))
 
     wb.save(out_path)
-    shutil.copy2(out_path, downloads)
+    try:
+        shutil.copy2(out_path, downloads)
+        dl_written = downloads
+    except PermissionError:
+        # Excel often locks the previous Downloads copy; write a sibling file.
+        alt = downloads.with_name(downloads.stem + "_v2.xlsx")
+        shutil.copy2(out_path, alt)
+        dl_written = alt
+        print(f"WARNING: {downloads} locked; wrote {alt}")
     print(out_path)
-    print(downloads)
+    print(dl_written)
     print("sheets:", wb.sheetnames)
     return out_path
 

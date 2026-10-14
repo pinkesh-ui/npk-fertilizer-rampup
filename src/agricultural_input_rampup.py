@@ -40,8 +40,11 @@ import pandas as pd
 # matplotlib is only needed for offline PNG/SVG export (not the Dash dashboard)
 
 # Shared construction / scaling assumptions (N-fertilizer template)
-TARGET_PLANT_SIZE_TPD = 2000.0  # default for non-NH3 commodities
+TARGET_PLANT_SIZE_TPD = 2000.0  # legacy default (unused by K/P/H2SO4 below)
 NH3_TARGET_PLANT_SIZE_TPD = 3000.0  # EuroChem Kingisepp-scaled NH3 plant
+POTASSIUM_TARGET_PLANT_SIZE_TPD = 2300.0  # Banio-scale potash plant
+PHOSPHATE_TARGET_PLANT_SIZE_TPD = 1300.0  # TSP/MAP+DAP target plant
+H2SO4_TARGET_PLANT_SIZE_TPD = 100.0  # sulfuric acid target plant
 COST_CAPACITY_EXPONENT = 0.7
 FAST_CONSTRUCTION_COST_FACTOR = 1.47
 FAST_CONSTRUCTION_SPEED_FACTOR = 0.32
@@ -143,7 +146,8 @@ def compute_potassium_capex() -> CapexResult:
     """From potassium workbook CAPEX Calcs!B19 / H14 (Banio MOP PEA benchmark)."""
     ref_capacity_tpy = 800_000.0
     ref_capex_usd = 480_000_000.0
-    target_tpy = TARGET_PLANT_SIZE_TPD * 365.0
+    target_tpd = POTASSIUM_TARGET_PLANT_SIZE_TPD
+    target_tpy = target_tpd * 365.0
     scale = target_tpy / ref_capacity_tpy
     regular = ref_capex_usd * (scale**COST_CAPACITY_EXPONENT)
     fast = FAST_CONSTRUCTION_COST_FACTOR * regular
@@ -154,8 +158,10 @@ def compute_potassium_capex() -> CapexResult:
         notes={
             "ref_capacity_tpy_mop": ref_capacity_tpy,
             "ref_capex_usd": ref_capex_usd,
+            "target_tpd": target_tpd,
             "target_tpy": target_tpy,
             "plant_scale_factor": scale,
+            "cost_capacity_exponent": COST_CAPACITY_EXPONENT,
         },
     )
 
@@ -168,13 +174,14 @@ def compute_phosphate_capex() -> CapexResult:
     ref_capacity_tpd = 1200.0
     ref_total_investment_1978_usd = 70_000_000.0
     ref_capex_2025 = ref_total_investment_1978_usd * inflation
-    scale = TARGET_PLANT_SIZE_TPD / ref_capacity_tpd
+    target_tpd = PHOSPHATE_TARGET_PLANT_SIZE_TPD
+    scale = target_tpd / ref_capacity_tpd
     regular = ref_capex_2025 * (scale**COST_CAPACITY_EXPONENT)
     fast = FAST_CONSTRUCTION_COST_FACTOR * regular
     return CapexResult(
         regular_capex_usd=regular,
         fast_capex_usd=fast,
-        capital_efficiency_usd_per_tpa=regular / TARGET_PLANT_SIZE_TPD / 365.0,
+        capital_efficiency_usd_per_tpa=regular / target_tpd / 365.0,
         notes={
             "cpi_1978": cpi_1978,
             "cpi_2025": cpi_2025,
@@ -182,7 +189,9 @@ def compute_phosphate_capex() -> CapexResult:
             "ref_capacity_tpd_tsp": ref_capacity_tpd,
             "ref_total_investment_1978_usd": ref_total_investment_1978_usd,
             "ref_capex_2025_usd": ref_capex_2025,
+            "target_tpd": target_tpd,
             "plant_scale_factor": scale,
+            "cost_capacity_exponent": COST_CAPACITY_EXPONENT,
         },
     )
 
@@ -191,8 +200,8 @@ def compute_h2so4_capex() -> CapexResult:
     """From H2SO4_ramp_up_UNIDO_based_corrected.xlsx CAPEX Calcs!B19."""
     ref_capacity_tpd = 30.0
     ref_capex_usd = 216_967.0  # $1988 basis in sheet, used as given for B19
-    target_tpd = 2000.0
-    cost_exponent = 0.65
+    target_tpd = H2SO4_TARGET_PLANT_SIZE_TPD
+    cost_exponent = COST_CAPACITY_EXPONENT  # 0.7 (aligned with other commodities)
     scale = target_tpd / ref_capacity_tpd
     regular = ref_capex_usd * (scale**cost_exponent)
     fast = FAST_CONSTRUCTION_COST_FACTOR * regular
@@ -296,7 +305,7 @@ def _commodity_specs() -> list[dict]:
             "production_chart_title": "K FERTILIZER/YEAR PRODUCTION RAMP-UP",
             "multiple_chart_title": "MULTIPLE OF CURRENT POTASH PRODUCTION RAMP-UP",
             "multiple_y_label": "Multiple of current potash production",
-            "target_plant_size_tpd": TARGET_PLANT_SIZE_TPD,
+            "target_plant_size_tpd": POTASSIUM_TARGET_PLANT_SIZE_TPD,
         },
         {
             "key": "phosphate",
@@ -306,7 +315,7 @@ def _commodity_specs() -> list[dict]:
             "production_chart_title": "MAP+DAP/YEAR PRODUCTION RAMP-UP",
             "multiple_chart_title": "MULTIPLE OF CURRENT MAP+DAP PRODUCTION RAMP-UP",
             "multiple_y_label": "Multiple of current MAP+DAP production",
-            "target_plant_size_tpd": TARGET_PLANT_SIZE_TPD,
+            "target_plant_size_tpd": PHOSPHATE_TARGET_PLANT_SIZE_TPD,
         },
         {
             "key": "h2so4",
@@ -316,7 +325,7 @@ def _commodity_specs() -> list[dict]:
             "production_chart_title": "H2SO4/YEAR PRODUCTION RAMP-UP",
             "multiple_chart_title": "MULTIPLE OF CURRENT H2SO4 PRODUCTION RAMP-UP",
             "multiple_y_label": "Multiple of current H2SO4 production",
-            "target_plant_size_tpd": 2000.0,
+            "target_plant_size_tpd": H2SO4_TARGET_PLANT_SIZE_TPD,
         },
         {
             "key": "herbicide",
