@@ -88,7 +88,7 @@ def test_nh3_capex_matches_eurochem_kingisepp_benchmark():
 
 
 def test_pesticide_assumptions_match_scale_up_sheet():
-    """Updated pesticide scale-up assumptions (t/yr plants, 2023 use)."""
+    """Updated pesticide scale-up assumptions (t/yr plants, 2026 use)."""
     from agricultural_input_rampup import compute_fungicide_capex
     from agricultural_input_rampup import compute_herbicide_capex
     from agricultural_input_rampup import compute_insecticide_capex

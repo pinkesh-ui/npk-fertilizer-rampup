@@ -322,7 +322,7 @@ def _commodity_specs() -> list[dict]:
             "key": "herbicide",
             "label": "Herbicides",
             "product_short": "Herb",
-            # Current use 2023 (Mt ai/yr); target plant 600 t/yr → tpd = 600/365
+            # Current use 2026 (Mt ai/yr); target plant 600 t/yr → tpd = 600/365
             "current_mt_per_year": 1.9902,
             "production_chart_title": "HERBICIDE/YEAR PRODUCTION RAMP-UP",
             "multiple_chart_title": "MULTIPLE OF CURRENT HERBICIDE PRODUCTION RAMP-UP",
