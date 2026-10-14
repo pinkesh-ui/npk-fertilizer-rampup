@@ -95,18 +95,21 @@ equal-pace weights \(B_i \propto\) (CAPEX $/tpa) × (current t/yr) so commoditie
 recover their own current capacity at the same pace. NH3 remains the ramp-up
 timing/chart template.
 
+NH3 plant benchmark (EuroChem Kingisepp): **3,000 t/day**, CAPEX **~$1.369B**,
+capital efficiency **~$1,250/tpa**.
+
 | Commodity | Default annual budget (USD) | Current production baseline |
 |-----------|----------------------------|-----------------------------|
-| NH3 | ~$555B (~73% of pot) | 240 Mt/yr |
-| Phosphate | ~$98B | 47.8 Mt/yr |
-| Potassium | ~$78B | 41.6 Mt/yr potash |
-| Herbicides | ~$12B | 1.90 Mt/yr |
-| Fungicides | ~$11B | 0.82 Mt/yr |
-| Insecticides | ~$2.7B | 0.82 Mt/yr |
-| H2SO4 | ~$2.1B | 150 Mt/yr |
+| NH3 | ~$619B (~82% of pot) | 240 Mt/yr |
+| Phosphate | ~$67B | 47.8 Mt/yr |
+| Potassium | ~$53B | 41.6 Mt/yr potash |
+| Herbicides | ~$8B | 1.90 Mt/yr |
+| Fungicides | ~$7B | 0.82 Mt/yr |
+| Insecticides | ~$1.8B | 0.82 Mt/yr |
+| H2SO4 | ~$1.4B | 150 Mt/yr |
 
-Category totals ≈ fertilizer **96.4%**, pesticides **3.4%**, H2SO4 **0.3%**. Exact
-defaults are computed at import time from CAPEX functions.
+Equal-pace defaults are recomputed at import from CAPEX functions (NH3 share rose
+after the higher $/tpa Kingisepp benchmark).
 
 ## License
 

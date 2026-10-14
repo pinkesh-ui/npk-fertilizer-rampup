@@ -40,7 +40,8 @@ import pandas as pd
 # matplotlib is only needed for offline PNG/SVG export (not the Dash dashboard)
 
 # Shared construction / scaling assumptions (N-fertilizer template)
-TARGET_PLANT_SIZE_TPD = 2000.0
+TARGET_PLANT_SIZE_TPD = 2000.0  # default for non-NH3 commodities
+NH3_TARGET_PLANT_SIZE_TPD = 3000.0  # EuroChem Kingisepp-scaled NH3 plant
 COST_CAPACITY_EXPONENT = 0.7
 FAST_CONSTRUCTION_COST_FACTOR = 1.47
 FAST_CONSTRUCTION_SPEED_FACTOR = 0.32
@@ -104,29 +105,34 @@ class ScenarioParams:
 
 
 def compute_nh3_capex() -> CapexResult:
-    """From Agricultural input ramp-up speed CAPEX Calcs!B19 / H14."""
-    ref_capacity_tpd = 1800.0
-    ref_capex_eur = 323_000_000.0
-    euro_inflation_2012_to_2025 = 1.3855340403694834
-    eur_to_usd = 1.16
-    scale = TARGET_PLANT_SIZE_TPD / ref_capacity_tpd
-    regular = (
-        ref_capex_eur
-        * euro_inflation_2012_to_2025
-        * eur_to_usd
-        * (scale**COST_CAPACITY_EXPONENT)
-    )
+    """
+    NH3 CAPEX from EuroChem Kingisepp ammonia plant benchmark
+    (process-worldwide.com / CAPEX Calcs sheet):
+      ref 2,890 t/day at $1B (2015 USD), inflate ×1.33 to 2025,
+      scale to 3,000 t/day (sheet scale factor 1.04) with exponent 0.7
+      → target CAPEX $1,368,630,195.13, capital efficiency $1,250/tpa.
+    """
+    ref_capacity_tpd = 2890.0
+    ref_capex_usd_2015 = 1_000_000_000.0
+    usd_inflation_2015_to_2025 = 1.33
+    target_tpd = NH3_TARGET_PLANT_SIZE_TPD
+    # Sheet uses rounded scale factor 1.04 (≈ 3000/2890).
+    plant_scale_factor = 1.04
+    # Authoritative CAPEX Calcs target-plant estimate (marked "Using this estimate").
+    regular = 1_368_630_195.13
     fast = FAST_CONSTRUCTION_COST_FACTOR * regular
+    capital_efficiency = regular / target_tpd / 365.0  # ≈ $1,250/tpa
     return CapexResult(
         regular_capex_usd=regular,
         fast_capex_usd=fast,
-        capital_efficiency_usd_per_tpa=regular / TARGET_PLANT_SIZE_TPD / 365.0,
+        capital_efficiency_usd_per_tpa=capital_efficiency,
         notes={
             "ref_capacity_tpd": ref_capacity_tpd,
-            "ref_capex_eur_2012": ref_capex_eur,
-            "euro_inflation_2012_to_2025": euro_inflation_2012_to_2025,
-            "eur_to_usd": eur_to_usd,
-            "plant_scale_factor": scale,
+            "ref_capex_usd_2015": ref_capex_usd_2015,
+            "usd_inflation_2015_to_2025": usd_inflation_2015_to_2025,
+            "target_plant_size_tpd": target_tpd,
+            "plant_scale_factor": plant_scale_factor,
+            "cost_capacity_exponent": COST_CAPACITY_EXPONENT,
         },
     )
 
@@ -272,7 +278,7 @@ def _commodity_specs() -> list[dict]:
             "production_chart_title": "NH3/YEAR PRODUCTION RAMP-UP",
             "multiple_chart_title": "MULTIPLE OF CURRENT NH3 PRODUCTION RAMP-UP",
             "multiple_y_label": "Multiple of current NH3 production",
-            "target_plant_size_tpd": TARGET_PLANT_SIZE_TPD,
+            "target_plant_size_tpd": NH3_TARGET_PLANT_SIZE_TPD,
         },
         {
             "key": "potassium",

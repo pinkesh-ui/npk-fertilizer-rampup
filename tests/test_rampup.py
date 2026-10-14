@@ -78,8 +78,17 @@ def test_startup_pct_scales_startup_production_not_plants():
     )
 
 
+def test_nh3_capex_matches_eurochem_kingisepp_benchmark():
+    """EuroChem Kingisepp: ~$1.369B CAPEX at 3000 t/day, ~$1250/tpa."""
+    from agricultural_input_rampup import compute_nh3_capex
+
+    capex = compute_nh3_capex()
+    assert abs(capex.regular_capex_usd - 1_368_630_195.13) < 1.0
+    assert abs(capex.capital_efficiency_usd_per_tpa - 1250.0) < 1.0
+
+
 def test_excel_nh3_plants_per_year_at_half_fraction():
-    """budget/CAPEX × 0.5 ≈ 678 plants/year at full $758B NH3 budget (Excel C16=0.5)."""
+    """budget/CAPEX × 0.5 at full $758B NH3 budget (EuroChem ~$1.369B/plant)."""
     commodity = next(c for c in COMMODITIES if c.key == "nh3")
     result = simulate_commodity(
         commodity,
@@ -87,10 +96,12 @@ def test_excel_nh3_plants_per_year_at_half_fraction():
         startup_pct_of_full=0.5,
         fraction_functioning=0.5,
     )
-    assert 650 < result["regular"].plants_per_year < 710
+    # 758e9 / 1.36863e9 * 0.5 ≈ 277 plants/year
+    assert 250 < result["regular"].plants_per_year < 300
     assert result["regular"].startup_production_tpw == (
         result["regular"].scaled_production_tpw * 0.5
     )
+    assert commodity.target_plant_size_tpd == 3000.0
 
 
 def test_h2so4_and_pesticides_use_shared_fraction_defaults():
