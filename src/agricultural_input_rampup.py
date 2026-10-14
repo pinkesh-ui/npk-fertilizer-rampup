@@ -108,13 +108,15 @@ def compute_nh3_capex() -> CapexResult:
     """
     NH3 CAPEX from EuroChem Kingisepp ammonia plant benchmark
     (process-worldwide.com / CAPEX Calcs sheet):
-      ref 2,890 t/day at $1B (2015 USD), inflate ×1.33 to 2025,
+      ref 2,890 t/day at $1B (2015 USD),
+      USD inflation conversion ×1.33 to 2025,
       scale to 3,000 t/day (sheet scale factor 1.04) with exponent 0.7
       → target CAPEX $1,368,630,195.13, capital efficiency $1,250/tpa.
     """
     ref_capacity_tpd = 2890.0
     ref_capex_usd_2015 = 1_000_000_000.0
-    usd_inflation_2015_to_2025 = 1.33
+    # CAPEX Calcs: "USD inflation conversion" (2025), not euro inflation.
+    usd_inflation_conversion_2025 = 1.33
     target_tpd = NH3_TARGET_PLANT_SIZE_TPD
     # Sheet uses rounded scale factor 1.04 (≈ 3000/2890).
     plant_scale_factor = 1.04
@@ -129,7 +131,7 @@ def compute_nh3_capex() -> CapexResult:
         notes={
             "ref_capacity_tpd": ref_capacity_tpd,
             "ref_capex_usd_2015": ref_capex_usd_2015,
-            "usd_inflation_2015_to_2025": usd_inflation_2015_to_2025,
+            "usd_inflation_conversion_2025": usd_inflation_conversion_2025,
             "target_plant_size_tpd": target_tpd,
             "plant_scale_factor": plant_scale_factor,
             "cost_capacity_exponent": COST_CAPACITY_EXPONENT,
